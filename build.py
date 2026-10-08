@@ -431,16 +431,20 @@ def main(argv=None):
     pts, dropped_dup = drop_duplicate_times(pts)
     pts, dropped_home = trim_home(pts, args.trim_home_km)
     data = compute(pts, local_zone())
+    # The template reads these as meta.thresholds.*, so they stay nested
+    # rather than mixed in with the title and zone.
     data["meta"] = {
         "title": args.title,
         "tz": TZ_NAME,
-        "trim_home_km": args.trim_home_km,
-        "min_step_m": MIN_STEP_M,
-        "gap_h": GAP_H,
-        "moving_kmh": MOVING_KMH,
-        "moving_max_gap_h": MOVING_MAX_GAP_H,
-        "elev_threshold_m": ELEV_THRESHOLD_M,
-        "median_window": MEDIAN_WINDOW,
+        "thresholds": {
+            "trim_home_km": args.trim_home_km,
+            "min_step_m": MIN_STEP_M,
+            "gap_h": GAP_H,
+            "moving_kmh": MOVING_KMH,
+            "moving_max_gap_h": MOVING_MAX_GAP_H,
+            "elev_threshold_m": ELEV_THRESHOLD_M,
+            "median_window": MEDIAN_WINDOW,
+        },
     }
     print_summary(data, dropped_dup, dropped_home, args.trim_home_km)
 
