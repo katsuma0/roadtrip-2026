@@ -817,6 +817,7 @@ body.sheet-open #stats {
         th.removeAttribute('aria-sort');
       }
     });
+    revealSelected();
   }
   document.querySelector('#days thead').addEventListener('click', function (e) {
     const btn = e.target.closest('button[data-sort]');
@@ -854,6 +855,11 @@ body.sheet-open #stats {
     // the sheet needs no separate clear button.
     if (d === selectedDay) d = null;
     selectedDay = d;
+    // A day picked while playing should stay on screen, but the pan that
+    // follows the marker would drag the view away within a tick, so
+    // playback pauses. The timer lives further down; selection only
+    // happens on user input, long after the script has finished.
+    if (selectedDay !== null && timer !== null) stopPlay();
     dayLayers.forEach(function (group, i) {
       const lit = selectedDay === null || i === selectedDay;
       const opacity = lit ? LINE_OPACITY : FADED_OPACITY;
@@ -876,23 +882,28 @@ body.sheet-open #stats {
       trs[i].classList.toggle('selected', i === selectedDay);
     });
     fadeChart();
-    const stats = document.getElementById('stats');
-    if (selectedDay !== null && stats.clientHeight > 0) {
-      // Not scrollIntoView: the sticky header paints over the scrollport
-      // without shrinking it, so a row tucked under the header counts as
-      // visible and never moves. The header height comes off the top.
-      const row = trs[selectedDay].getBoundingClientRect();
-      const box = stats.getBoundingClientRect();
-      const head = document.querySelector('#days thead').offsetHeight;
-      // Rounded up because scrollTop lands on whole pixels and a half
-      // pixel short still clips the row's border.
-      if (row.top < box.top + head) {
-        stats.scrollTop -= Math.ceil(box.top + head - row.top);
-      } else if (row.bottom > box.bottom) {
-        stats.scrollTop += Math.ceil(row.bottom - box.bottom);
-      }
-    }
+    revealSelected();
     map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+  }
+
+  // Not scrollIntoView: the sticky header paints over the scrollport
+  // without shrinking it, so a row tucked under the header counts as
+  // visible and never moves. The header height comes off the top. A sort
+  // or the sheet opening can move the selected row too, so they call this
+  // as well.
+  function revealSelected() {
+    const stats = document.getElementById('stats');
+    if (selectedDay === null || stats.clientHeight === 0) return;
+    const row = trs[selectedDay].getBoundingClientRect();
+    const box = stats.getBoundingClientRect();
+    const head = document.querySelector('#days thead').offsetHeight;
+    // Rounded up because scrollTop lands on whole pixels and a half
+    // pixel short still clips the row's border.
+    if (row.top < box.top + head) {
+      stats.scrollTop -= Math.ceil(box.top + head - row.top);
+    } else if (row.bottom > box.bottom) {
+      stats.scrollTop += Math.ceil(row.bottom - box.bottom);
+    }
   }
 
   document.addEventListener('keydown', function (e) {
@@ -921,6 +932,7 @@ body.sheet-open #stats {
     if (e.propertyName !== 'height') return;
     map.invalidateSize();
     map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+    revealSelected();
   });
 
   // Scrubber. Every change of position goes through setIndex so the map
