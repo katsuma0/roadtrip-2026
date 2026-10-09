@@ -475,6 +475,10 @@ body.sheet-open #stats {
   #readout { font-size: 13px; gap: 12px; }
 }
 
+/* The casing under each day line takes the panel colour: white under the
+   light tiles, near black under the inverted dark ones. */
+.leaflet-overlay-pane path.casing { stroke: var(--panel); }
+
 /* Leaflet controls in the page's own colours so they read in both themes. */
 .leaflet-container {
   background: var(--map-bg);
@@ -606,6 +610,7 @@ body.sheet-open #stats {
   const SELECTED_WEIGHT = 5;
   const LINE_OPACITY = 0.9;
   const FADED_OPACITY = 0.25;
+  const CASING_OPACITY = 0.8;
   // Room so the fitted track clears the zoom control, and on phones the
   // title panel floating over the map. The title box is read at call
   // time because the sheet changes the map height and the title can wrap.
@@ -660,6 +665,13 @@ body.sheet-open #stats {
           weight: 1, opacity: LINE_OPACITY, fillOpacity: LINE_OPACITY
         });
       } else {
+        // A casing under each line keeps the colour readable over the
+        // greens and tans of real tiles. Its stroke comes from CSS so it
+        // flips with the theme.
+        group.addLayer(L.polyline(coords, {
+          className: 'casing', weight: LINE_WEIGHT + 3, opacity: CASING_OPACITY,
+          lineJoin: 'round', lineCap: 'round', interactive: false
+        }));
         layer = L.polyline(coords, {
           color: day.color, weight: LINE_WEIGHT, opacity: LINE_OPACITY,
           lineJoin: 'round', lineCap: 'round'
@@ -864,8 +876,13 @@ body.sheet-open #stats {
       const lit = selectedDay === null || i === selectedDay;
       const opacity = lit ? LINE_OPACITY : FADED_OPACITY;
       group.eachLayer(function (layer) {
-        if (layer instanceof L.Polyline) {
-          layer.setStyle({ opacity: opacity, weight: i === selectedDay ? SELECTED_WEIGHT : LINE_WEIGHT });
+        const weight = i === selectedDay ? SELECTED_WEIGHT : LINE_WEIGHT;
+        if (layer.options.className === 'casing') {
+          // A faded day is thin and pale already; its casing would only
+          // add a grey smear, so it goes away with the fade.
+          layer.setStyle({ opacity: lit ? CASING_OPACITY : 0, weight: weight + 3 });
+        } else if (layer instanceof L.Polyline) {
+          layer.setStyle({ opacity: opacity, weight: weight });
         } else {
           layer.setStyle({ opacity: opacity, fillOpacity: opacity });
         }
