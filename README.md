@@ -1,12 +1,12 @@
 # Road trip 2026
 
-A map of the drive from Markham to British Columbia and back, Sep 5 to Oct 8, 2026, drawn from the inReach track. One HTML page, Leaflet for the map, no framework and no bundler. The page lives at https://katsuma0.github.io/roadtrip-2026/ once GitHub Pages is switched on.
+A map of the drive from Markham to British Columbia and back, Sep 5 to Oct 8, 2026, drawn from the inReach track. One HTML page, Leaflet for the map, no framework and no bundler. The page lives at https://katsuma0.github.io/roadtrip-2026/ once Pages serves the docs folder from main.
 
 ## Rebuild
 
     python build.py
 
-That reads data/inreach-sep-oct-2026.gpx, prints a table of days and the trip totals, and writes docs/index.html with the stats and every point embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title, the subtitle and the data.
+That reads data/inreach-sep-oct-2026.gpx, prints a table of days and the trip totals, and writes docs/index.html with the stats and every point left after the trim embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title, the subtitle and the data.
 
 ## Deploy
 
@@ -20,14 +20,14 @@ Any silence over 6 h is a gap. The line breaks there, the distance between the t
 
 Days are America/Toronto dates. The trip crossed into Central, Mountain and Pacific time, so a day in the table is a Toronto calendar day even where the clock on the dash said something else. That is a deliberate simplification; one clock keeps the table honest about calendar days at home.
 
-After the 1.5 km trim the start and end are 2.8 km apart, not 1.5 km. The first surviving fix is already 6.9 km from home because the device logged every 10 minutes and I was on the highway. The threshold stayed at 1.5 km.
+After the 1.5 km trim the start and end are 2.8 km apart, not 1.5 km. The first surviving fix is already 6.9 km from home and the last one is 5.1 km out, because the device logged every 10 minutes and I was on the highway. The threshold stayed at 1.5 km.
 
 ## Privacy
 
-The page is public. The first and last fixes are at home, so build.py drops every point within `--trim-home-km` of the first one before writing the page. That trim happens at build time only. The GPX in data/ still holds the untrimmed track, so anyone with the repo can see where it starts.
+The page is public. The first and last fixes are at home, so build.py drops every point within `--trim-home-km` of the first one before writing the page. That trim happens at build time only. The GPX in data/ still holds the untrimmed track, and the repo is public, so anyone can open it on GitHub and read the home coordinates from the first point.
 
-The GPX carries lat, lon, ele and time and nothing else. The inReach KML export has the device IMEI and my name on every point, so the KML stays out of git and tools/kml_to_gpx.py strips those fields when it writes the GPX:
+Each point in the GPX carries lat, lon, ele and time and nothing else. The inReach KML export has the device IMEI and my name on every point, so the KML stays out of git and tools/kml_to_gpx.py strips those fields when it writes the GPX:
 
     python tools/kml_to_gpx.py feed.kml data/inreach-sep-oct-2026.gpx "inReach track, Sep to Oct 2026"
 
-The device sent 1,557 fixes in 34 days, most of them ten minutes apart.
+The GPX holds 1,557 points over 34 days, six of them repeats, and most of the rest are ten minutes apart.
