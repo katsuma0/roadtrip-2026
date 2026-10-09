@@ -80,6 +80,18 @@ body {
   z-index: 0;
   background: var(--map-bg);
 }
+/* Only shown when Leaflet never arrives from the CDN. Centred in the map
+   box so the floating title on a phone does not cover it. */
+.map-missing {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  right: 16px;
+  transform: translateY(-50%);
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
 
 #title {
   position: absolute;
@@ -574,6 +586,16 @@ body.sheet-open #stats {
 
   const TRIP = JSON.parse(document.getElementById('trip-data').textContent);
 
+  // Leaflet comes from a CDN. Without it the page would be a blank map
+  // box and dead controls, so it says what happened instead.
+  if (typeof L === 'undefined') {
+    const missing = document.createElement('p');
+    missing.className = 'map-missing';
+    missing.textContent = 'The map did not load. It needs Leaflet from cdnjs.cloudflare.com and this connection did not reach it.';
+    document.getElementById('map').appendChild(missing);
+    return;
+  }
+
   // Times are shown in the trip's home zone, not the viewer's, so the
   // page agrees with the day grouping build.py already did.
   const fmtTime = new Intl.DateTimeFormat('en-CA', {
@@ -612,6 +634,9 @@ body.sheet-open #stats {
   const trackBounds = L.latLngBounds(latlngs);
 
   const map = L.map('map', { zoomControl: false });
+  // The default prefix carries an inline flag icon from the library; the
+  // credit stays, as text.
+  map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
   L.control.zoom({ position: 'topright' }).addTo(map);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
