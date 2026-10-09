@@ -7,8 +7,12 @@
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c1e">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
 :root {
+  /* The scrollbar and any native control follow color-scheme, not the
+     tokens below, so without this they stay light on the dark panel. */
+  color-scheme: light dark;
   --bg: #ffffff;
   --panel: #ffffff;
   --panel-glass: rgba(255, 255, 255, 0.88);
@@ -79,8 +83,10 @@ body {
 
 #title {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  /* viewport-fit=cover draws under the notch, so the offset grows by the
+     inset on phones that report one and stays 10px everywhere else. */
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
   max-width: 75%;
   padding: 6px 10px;
   border-radius: 6px;
@@ -123,6 +129,16 @@ body {
   gap: 4px;
   cursor: pointer;
 }
+/* Clipped to a pixel so screen readers get a name that says what the
+   handle opens while the visible text stays the subtitle. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 #handle .grip {
   display: block;
   width: 36px;
@@ -139,12 +155,18 @@ body {
   grid-area: stats;
   height: 0;
   overflow: hidden;
+  /* Height 0 alone leaves the rows focusable behind a handle that says
+     collapsed; visibility takes them out of the tab order too. The delay
+     lets the height animation finish before the rows disappear. */
+  visibility: hidden;
   background: var(--panel);
-  transition: height 0.2s ease;
+  transition: height 0.2s ease, visibility 0s linear 0.2s;
 }
 body.sheet-open #stats {
   height: 55vh;
   overflow: auto;
+  visibility: visible;
+  transition: height 0.2s ease, visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
 #stats h2 {
@@ -217,6 +239,7 @@ body.sheet-open #stats {
     height: auto;
     min-height: 0;
     overflow: auto;
+    visibility: visible;
     border-right: 1px solid var(--border);
     transition: none;
   }
@@ -228,6 +251,10 @@ body.sheet-open #stats {
   background: var(--map-bg);
   font-family: inherit;
 }
+/* Same inset rule as #title, so the zoom control and attribution stay
+   clear of the sensor housing in landscape. */
+.leaflet-top .leaflet-control { margin-top: calc(10px + env(safe-area-inset-top, 0px)); }
+.leaflet-right .leaflet-control { margin-right: calc(10px + env(safe-area-inset-right, 0px)); }
 .leaflet-bar {
   box-shadow: 0 1px 4px var(--control-shadow);
 }
@@ -280,6 +307,7 @@ body.sheet-open #stats {
 <div id="map"></div>
 <button id="handle" type="button" aria-expanded="false" aria-controls="stats">
   <span class="grip" aria-hidden="true"></span>
+  <span class="vh">Trip stats, </span>
   <span class="handle-text">__TRIP_SUBTITLE__</span>
 </button>
 <!-- #dock (elevation chart and scrubber) goes here; its grid row stays empty until then. -->
@@ -288,7 +316,6 @@ body.sheet-open #stats {
   <ul class="day-list" id="day-list" aria-label="Days"></ul>
 </aside>
 <script id="trip-data" type="application/json">__TRIP_DATA__</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
 (function () {
   'use strict';
@@ -305,8 +332,22 @@ body.sheet-open #stats {
   const SELECTED_WEIGHT = 5;
   const LINE_OPACITY = 0.9;
   const FADED_OPACITY = 0.25;
-  // Room so the fitted track clears the title panel and the zoom control.
-  const FIT_PADDING = { padding: [36, 36] };
+  // Room so the fitted track clears the zoom control, and on phones the
+  // title panel floating over the map. The title box is read at call
+  // time because the sheet changes the map height and the title can wrap.
+  const FIT_PAD = 36;
+  const titleEl = document.getElementById('title');
+  function fitPadding() {
+    let top = FIT_PAD;
+    if (getComputedStyle(titleEl).position === 'absolute') {
+      top = titleEl.offsetTop + titleEl.offsetHeight + 16;
+    }
+    // A landscape phone with the sheet open leaves a map about 120px tall.
+    // Padding taller than half of it makes Leaflet pick a NaN zoom, so the
+    // flat value wins there and the title overlap is accepted.
+    if (top + FIT_PAD > map.getSize().y / 2) top = FIT_PAD;
+    return { paddingTopLeft: [FIT_PAD, top], paddingBottomRight: [FIT_PAD, FIT_PAD] };
+  }
 
   const latlngs = TRIP.points.map(function (p) { return [p[0], p[1]]; });
   const trackBounds = L.latLngBounds(latlngs);
@@ -317,13 +358,10 @@ body.sheet-open #stats {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
-  // The view is set before any vector layer goes on. Leaflet defers layers
-  // added to a map with no view, and the SVG renderer then draws them
-  // before it has worked out its own bounds.
-  map.fitBounds(trackBounds, FIT_PADDING);
+  map.fitBounds(trackBounds, fitPadding());
 
-  // One layer group per day. A segment with a single point is a lone fix
-  // between two gaps, so it gets a dot rather than a zero length line.
+  // A segment with a single point is a lone fix between two gaps, so it
+  // gets a dot rather than a zero length line.
   const dayLayers = [];
   const dayBounds = [];
   TRIP.days.forEach(function (day, d) {
@@ -352,9 +390,9 @@ body.sheet-open #stats {
     dayBounds.push(L.latLngBounds(dayCoords));
   });
 
-  // Start and end are about a kilometre apart, so at trip zoom the two
-  // markers sit on the same pixel. Labels on opposite sides keep both
-  // readable instead of one covering the other.
+  // Start and end are a few kilometres apart (totals.start_end_km), so at
+  // trip zoom the two markers share a pixel. Labels on opposite sides keep
+  // both readable instead of one covering the other.
   function endMarker(latlng, text, side) {
     return L.circleMarker(latlng, {
       radius: 6, color: '#222222', weight: 2, opacity: 1,
@@ -402,7 +440,8 @@ body.sheet-open #stats {
   let selectedDay = null;
 
   function selectDay(d) {
-    // Picking the selected day again clears the selection.
+    // The toggle is the list's own clear control, the same as Escape, so
+    // the sheet needs no separate clear button.
     if (d === selectedDay) d = null;
     selectedDay = d;
     dayLayers.forEach(function (group, i) {
@@ -427,7 +466,7 @@ body.sheet-open #stats {
     if (selectedDay !== null && stats.clientHeight > 0) {
       rows[selectedDay].scrollIntoView({ block: 'nearest' });
     }
-    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], FIT_PADDING);
+    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
   }
 
   document.addEventListener('keydown', function (e) {
