@@ -163,7 +163,11 @@ body {
   transition: height 0.2s ease, visibility 0s linear 0.2s;
 }
 body.sheet-open #stats {
-  height: 55vh;
+  /* The handle row (24px) and the dock (132px) are fixed, so a 55vh sheet
+     on a landscape phone would leave the map 0 to 13px tall. The cap keeps
+     at least 150px of map; vh is the fallback for browsers without dvh. */
+  height: min(55vh, calc(100vh - 306px));
+  height: min(55vh, calc(100dvh - 306px));
   overflow: auto;
   visibility: visible;
   transition: height 0.2s ease, visibility 0s;
@@ -284,6 +288,13 @@ body.sheet-open #stats {
 /* Fixed widths so the slider does not shift as the numbers change length. */
 #readout .ele { min-width: 6.5ch; text-align: right; }
 #readout .km { min-width: 8.5ch; text-align: right; }
+
+@media (max-width: 767px) {
+  /* With the sheet open the map is about a quarter of the screen and the
+     title panel would cover a third of that, including the day the user
+     just tapped. The handle repeats the subtitle, so nothing is lost. */
+  body.sheet-open #title { display: none; }
+}
 
 @media (min-width: 768px) {
   body {
@@ -431,14 +442,21 @@ body.sheet-open #stats {
   const FIT_PAD = 36;
   const titleEl = document.getElementById('title');
   function fitPadding() {
+    const mapH = map.getSize().y;
+    // Leaflet subtracts the padding from the map size before it picks a
+    // zoom, and a negative size comes out as zoom 19. The open sheet is
+    // capped so the map keeps about 150px, but a viewport shorter than
+    // that still exists, so any map too short for the padding gets none.
+    if (mapH < 2 * FIT_PAD + 40) return { padding: [0, 0] };
     let top = FIT_PAD;
     if (getComputedStyle(titleEl).position === 'absolute') {
-      top = titleEl.offsetTop + titleEl.offsetHeight + 16;
+      // The title is hidden while the sheet is open, so its height is 0
+      // then and the floor keeps the fit clear of the zoom control.
+      top = Math.max(FIT_PAD, titleEl.offsetTop + titleEl.offsetHeight + 16);
     }
-    // A landscape phone with the sheet open leaves a map about 120px tall.
-    // Padding taller than half of it makes Leaflet pick a NaN zoom, so the
-    // flat value wins there and the title overlap is accepted.
-    if (top + FIT_PAD > map.getSize().y / 2) top = FIT_PAD;
+    // When the title would eat more than half of a short map there is no
+    // room to fit under it, so the flat value wins and the overlap stays.
+    if (top + FIT_PAD > mapH / 2) top = FIT_PAD;
     return { paddingTopLeft: [FIT_PAD, top], paddingBottomRight: [FIT_PAD, FIT_PAD] };
   }
 
@@ -627,8 +645,10 @@ body.sheet-open #stats {
     if (source !== 'slider') slider.value = String(i);
     moveCursor(i);
     // On load the map was just fitted to the whole track; a pan here would
-    // nudge that fit by the difference between the two paddings.
-    if (source !== 'init') map.panInside(latlngs[i], { padding: [48, 48] });
+    // nudge that fit by the difference between the two paddings. The pan
+    // is not animated because a 250ms animation restarted every 30ms tick
+    // never catches the marker, which then runs off the map while playing.
+    if (source !== 'init') map.panInside(latlngs[i], { padding: [48, 48], animate: false });
   }
 
   let timer = null;
@@ -655,10 +675,13 @@ body.sheet-open #stats {
   });
   slider.addEventListener('input', function () { setIndex(Number(slider.value), 'slider'); });
 
-  // Elevation chart, hand built SVG sized to the dock in CSS pixels.
+  // The chart viewBox is in CSS pixels so stroke widths and the 10px
+  // labels stay the same size at every dock width.
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const PAD = { left: 36, right: 10, top: 8, bottom: 18 };
   const Y_STEPS = [100, 200, 250, 500, 1000];
+  // GPS noise at lake level puts the floor a few metres below sea level.
+  const SEA_NOISE_M = 20;
   const X_STEP_KM = 2000;
 
   function svgEl(name, attrs) {
@@ -674,14 +697,14 @@ body.sheet-open #stats {
     if (p[2] > eleMax) eleMax = p[2];
   });
   // The domain rounds out to the first step that gives 3 to 5 ticks. A
-  // floor a few metres below sea level is GPS noise at lake level, so it
-  // snaps to 0 instead of to a tick a whole step further down.
+  // floor within the noise band below sea level snaps to 0 instead of to
+  // a tick a whole step further down, whatever the step.
   function yDomain() {
     let fit = null;
     for (let s = 0; s < Y_STEPS.length; s++) {
       const step = Y_STEPS[s];
       let lo = Math.floor(eleMin / step) * step;
-      if (lo < 0 && eleMin > -step * 0.05) lo = 0;
+      if (lo < 0 && eleMin > -SEA_NOISE_M) lo = 0;
       const hi = Math.ceil(eleMax / step) * step;
       fit = { lo: lo, hi: hi, step: step };
       const n = (hi - lo) / step + 1;
