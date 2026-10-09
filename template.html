@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TRIP_TITLE__</title>
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c1e">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+:root {
+  /* The scrollbar and any native control follow color-scheme, not the
+     tokens below, so without this they stay light on the dark panel. */
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-glass: rgba(255, 255, 255, 0.88);
+  --text: #1b1b1b;
+  --muted: #5e5e5e;
+  --border: #d8d8d8;
+  --row-hover: #f1f1f1;
+  --selected-bg: #e6eef9;
+  --link: #1b5fa8;
+  --grip: #c2c2c2;
+  --map-bg: #e9e7e2;
+  --marker-stroke: #222222;
+  --control-shadow: rgba(0, 0, 0, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --panel: #1c1c1e;
+    --panel-glass: rgba(28, 28, 30, 0.88);
+    --text: #ececec;
+    --muted: #a3a3a3;
+    --border: #3a3a3c;
+    --row-hover: #27272a;
+    --selected-bg: #2b3a52;
+    --link: #8ab8ff;
+    --grip: #5a5a5e;
+    --map-bg: #1b1d20;
+    --marker-stroke: #222222;
+    --control-shadow: rgba(0, 0, 0, 0.6);
+  }
+  /* Inverting the OSM raster gives a dark map without a second tile
+     source; the hue rotation puts water back on the blue side. */
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  /* dvh tracks the mobile browser chrome; vh stays as the fallback for
+     browsers that predate it. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr auto auto auto;
+  grid-template-areas: "map" "handle" "dock" "stats";
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background: var(--panel);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  position: relative;
+}
+
+#map {
+  grid-area: map;
+  min-height: 0;
+  /* A stacking context of its own keeps Leaflet's pane z-indexes from
+     fighting with the title and the sheet handle. */
+  position: relative;
+  z-index: 0;
+  background: var(--map-bg);
+}
+
+#title {
+  position: absolute;
+  /* viewport-fit=cover draws under the notch, so the offset grows by the
+     inset on phones that report one and stays 10px everywhere else. */
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  max-width: 75%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--panel-glass);
+  z-index: 1;
+  pointer-events: none;
+}
+#title h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+#title p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+#handle {
+  grid-area: handle;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 36px;
+  /* Overlapping the map by the corner radius makes the sheet look like
+     it sits on top of the map instead of below it. */
+  margin-top: -12px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+/* Clipped to a pixel so screen readers get a name that says what the
+   handle opens while the visible text stays the subtitle. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+#handle .grip {
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--grip);
+}
+#handle:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+/* The handle overlaps the bottom of the map, so the attribution moves up
+   by the same amount to stay readable. */
+.leaflet-container .leaflet-bottom .leaflet-control-attribution { margin-bottom: 12px; }
+
+#stats {
+  grid-area: stats;
+  height: 0;
+  overflow: hidden;
+  /* Height 0 alone leaves the rows focusable behind a handle that says
+     collapsed; visibility takes them out of the tab order too. The delay
+     lets the height animation finish before the rows disappear. */
+  visibility: hidden;
+  background: var(--panel);
+  transition: height 0.2s ease, visibility 0s linear 0.2s;
+}
+body.sheet-open #stats {
+  height: 55vh;
+  overflow: auto;
+  visibility: visible;
+  transition: height 0.2s ease, visibility 0s;
+  -webkit-overflow-scrolling: touch;
+}
+#stats h2 {
+  margin: 0;
+  padding: 8px 14px 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+}
+.day-list li { margin: 0; }
+.day-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.day-row:hover { background: var(--row-hover); }
+.day-row:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.day-row[aria-pressed="true"] {
+  background: var(--selected-bg);
+  font-weight: 600;
+}
+.day-row .swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}
+.day-row .day-label { flex: 1; }
+.day-row .day-km { color: var(--muted); }
+.day-row[aria-pressed="true"] .day-km { color: var(--text); }
+
+@media (min-width: 768px) {
+  body {
+    grid-template-columns: 380px 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "title map" "stats map" "stats dock";
+    padding-bottom: 0;
+  }
+  #title {
+    grid-area: title;
+    position: static;
+    max-width: none;
+    padding: 14px 16px;
+    border-radius: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    pointer-events: auto;
+  }
+  #title h1 { font-size: 18px; }
+  #title p { font-size: 14px; }
+  #handle { display: none; }
+  .leaflet-container .leaflet-bottom .leaflet-control-attribution { margin-bottom: 0; }
+  #stats, body.sheet-open #stats {
+    height: auto;
+    min-height: 0;
+    overflow: auto;
+    visibility: visible;
+    border-right: 1px solid var(--border);
+    transition: none;
+  }
+  #stats h2 { padding-top: 14px; }
+}
+
+/* Leaflet controls in the page's own colours so they read in both themes. */
+.leaflet-container {
+  background: var(--map-bg);
+  font-family: inherit;
+}
+/* Same inset rule as #title, so the zoom control and attribution stay
+   clear of the sensor housing in landscape. */
+.leaflet-top .leaflet-control { margin-top: calc(10px + env(safe-area-inset-top, 0px)); }
+.leaflet-right .leaflet-control { margin-right: calc(10px + env(safe-area-inset-right, 0px)); }
+.leaflet-bar {
+  box-shadow: 0 1px 4px var(--control-shadow);
+}
+.leaflet-touch .leaflet-bar {
+  border-color: var(--border);
+}
+.leaflet-bar a,
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+  background: var(--panel);
+  color: var(--text);
+  border-bottom-color: var(--border);
+}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+  background: var(--row-hover);
+}
+.leaflet-bar a.leaflet-disabled {
+  background: var(--panel);
+  color: var(--border);
+}
+.leaflet-container .leaflet-control-attribution {
+  background: var(--panel-glass);
+  color: var(--muted);
+  font-size: 11px;
+}
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--link);
+}
+.leaflet-tooltip {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 2px 7px;
+  box-shadow: 0 1px 3px var(--control-shadow);
+}
+.leaflet-tooltip-top:before { border-top-color: var(--panel); }
+.leaflet-tooltip-bottom:before { border-bottom-color: var(--panel); }
+.leaflet-tooltip-left:before { border-left-color: var(--panel); }
+.leaflet-tooltip-right:before { border-right-color: var(--panel); }
+</style>
+</head>
+<body>
+<header id="title">
+  <h1>__TRIP_TITLE__</h1>
+  <p>__TRIP_SUBTITLE__</p>
+</header>
+<div id="map"></div>
+<button id="handle" type="button" aria-expanded="false" aria-controls="stats">
+  <span class="grip" aria-hidden="true"></span>
+  <span class="vh">Trip stats, </span>
+  <span class="handle-text">__TRIP_SUBTITLE__</span>
+</button>
+<!-- #dock (elevation chart and scrubber) goes here; its grid row stays empty until then. -->
+<aside id="stats" aria-label="Trip stats">
+  <h2 id="stats-heading"></h2>
+  <ul class="day-list" id="day-list" aria-label="Days"></ul>
+</aside>
+<script id="trip-data" type="application/json">__TRIP_DATA__</script>
+<script>
+(function () {
+  'use strict';
+
+  const TRIP = JSON.parse(document.getElementById('trip-data').textContent);
+
+  // Times are shown in the trip's home zone, not the viewer's, so the
+  // page agrees with the day grouping build.py already did.
+  const fmtTime = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TRIP.meta.tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  });
+
+  const LINE_WEIGHT = 3;
+  const SELECTED_WEIGHT = 5;
+  const LINE_OPACITY = 0.9;
+  const FADED_OPACITY = 0.25;
+  // Room so the fitted track clears the zoom control, and on phones the
+  // title panel floating over the map. The title box is read at call
+  // time because the sheet changes the map height and the title can wrap.
+  const FIT_PAD = 36;
+  const titleEl = document.getElementById('title');
+  function fitPadding() {
+    let top = FIT_PAD;
+    if (getComputedStyle(titleEl).position === 'absolute') {
+      top = titleEl.offsetTop + titleEl.offsetHeight + 16;
+    }
+    // A landscape phone with the sheet open leaves a map about 120px tall.
+    // Padding taller than half of it makes Leaflet pick a NaN zoom, so the
+    // flat value wins there and the title overlap is accepted.
+    if (top + FIT_PAD > map.getSize().y / 2) top = FIT_PAD;
+    return { paddingTopLeft: [FIT_PAD, top], paddingBottomRight: [FIT_PAD, FIT_PAD] };
+  }
+
+  const latlngs = TRIP.points.map(function (p) { return [p[0], p[1]]; });
+  const trackBounds = L.latLngBounds(latlngs);
+
+  const map = L.map('map', { zoomControl: false });
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  map.fitBounds(trackBounds, fitPadding());
+
+  // A segment with a single point is a lone fix between two gaps, so it
+  // gets a dot rather than a zero length line.
+  const dayLayers = [];
+  const dayBounds = [];
+  TRIP.days.forEach(function (day, d) {
+    const group = L.layerGroup();
+    const dayCoords = [];
+    day.segments.forEach(function (seg) {
+      const coords = latlngs.slice(seg[0], seg[1] + 1);
+      let layer;
+      if (coords.length === 1) {
+        layer = L.circleMarker(coords[0], {
+          radius: 3, color: day.color, fillColor: day.color,
+          weight: 1, opacity: LINE_OPACITY, fillOpacity: LINE_OPACITY
+        });
+      } else {
+        layer = L.polyline(coords, {
+          color: day.color, weight: LINE_WEIGHT, opacity: LINE_OPACITY,
+          lineJoin: 'round', lineCap: 'round'
+        });
+      }
+      layer.on('click', function () { selectDay(d); });
+      group.addLayer(layer);
+      dayCoords.push.apply(dayCoords, coords);
+    });
+    group.addTo(map);
+    dayLayers.push(group);
+    dayBounds.push(L.latLngBounds(dayCoords));
+  });
+
+  // Start and end are a few kilometres apart (totals.start_end_km), so at
+  // trip zoom the two markers share a pixel. Labels on opposite sides keep
+  // both readable instead of one covering the other.
+  function endMarker(latlng, text, side) {
+    return L.circleMarker(latlng, {
+      radius: 6, color: '#222222', weight: 2, opacity: 1,
+      fillColor: '#ffffff', fillOpacity: 1
+    }).bindTooltip(text, { permanent: true, direction: side, offset: [side === 'left' ? -8 : 8, 0] }).addTo(map);
+  }
+  const startMarker = endMarker(latlngs[0], 'Start', 'left');
+  const finishMarker = endMarker(latlngs[latlngs.length - 1], 'End', 'right');
+
+  // Day list. The heading is built from the totals so it can never drift
+  // from what build.py computed.
+  const totals = TRIP.totals;
+  document.getElementById('stats-heading').textContent =
+    'I drove ' + totals.km.toLocaleString('en-CA', { maximumFractionDigits: 0 }) +
+    ' km in ' + totals.days + ' days, ' + totals.first_label + ' to ' + totals.last_label + '.';
+
+  const list = document.getElementById('day-list');
+  const rows = TRIP.days.map(function (day, d) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'day-row';
+    btn.setAttribute('data-day', String(d));
+    btn.setAttribute('aria-pressed', 'false');
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = day.color;
+    const label = document.createElement('span');
+    label.className = 'day-label';
+    label.textContent = day.label;
+    const km = document.createElement('span');
+    km.className = 'day-km';
+    km.textContent = day.km.toLocaleString('en-CA', {
+      minimumFractionDigits: 1, maximumFractionDigits: 1
+    }) + ' km';
+    btn.appendChild(swatch);
+    btn.appendChild(label);
+    btn.appendChild(km);
+    btn.addEventListener('click', function () { selectDay(d); });
+    li.appendChild(btn);
+    list.appendChild(li);
+    return btn;
+  });
+
+  let selectedDay = null;
+
+  function selectDay(d) {
+    // The toggle is the list's own clear control, the same as Escape, so
+    // the sheet needs no separate clear button.
+    if (d === selectedDay) d = null;
+    selectedDay = d;
+    dayLayers.forEach(function (group, i) {
+      const lit = selectedDay === null || i === selectedDay;
+      const opacity = lit ? LINE_OPACITY : FADED_OPACITY;
+      group.eachLayer(function (layer) {
+        if (layer instanceof L.Polyline) {
+          layer.setStyle({ opacity: opacity, weight: i === selectedDay ? SELECTED_WEIGHT : LINE_WEIGHT });
+        } else {
+          layer.setStyle({ opacity: opacity, fillOpacity: opacity });
+        }
+        if (i === selectedDay) layer.bringToFront();
+      });
+    });
+    // The markers must stay on top of whichever line was just raised.
+    startMarker.bringToFront();
+    finishMarker.bringToFront();
+    rows.forEach(function (row, i) {
+      row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
+    });
+    const stats = document.getElementById('stats');
+    if (selectedDay !== null && stats.clientHeight > 0) {
+      rows[selectedDay].scrollIntoView({ block: 'nearest' });
+    }
+    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && selectedDay !== null) selectDay(null);
+  });
+
+  // Mobile sheet. The handle is display none on desktop so this never fires there.
+  const handle = document.getElementById('handle');
+  handle.addEventListener('click', function () {
+    const open = document.body.classList.toggle('sheet-open');
+    handle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+
+  // The map box changes size when the sheet opens or closes; without this
+  // Leaflet keeps the old size and leaves grey tiles at the edges.
+  const mapEl = document.getElementById('map');
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(function () { map.invalidateSize(); }).observe(mapEl);
+  } else {
+    handle.addEventListener('click', function () { setTimeout(function () { map.invalidateSize(); }, 250); });
+  }
+})();
+</script>
+</body>
+</html>
