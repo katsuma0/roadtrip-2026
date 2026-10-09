@@ -129,8 +129,9 @@ body {
   gap: 4px;
   cursor: pointer;
 }
-/* Clipped to a pixel so screen readers get a name that says what the
-   handle opens while the visible text stays the subtitle. */
+/* Text screen readers need but sighted users do not (the handle name,
+   the slider label, the table caption). Clipped to a pixel rather than
+   display none so it stays in the accessibility tree. */
 .vh {
   position: absolute;
   width: 1px;
@@ -153,6 +154,10 @@ body {
 
 #stats {
   grid-area: stats;
+  /* The clipped table caption is absolute; without this its containing
+     block is body and it pokes out below the closed sheet, making the
+     whole page scrollable. */
+  position: relative;
   height: 0;
   overflow: hidden;
   /* Height 0 alone leaves the rows focusable behind a handle that says
@@ -173,49 +178,174 @@ body.sheet-open #stats {
   transition: height 0.2s ease, visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
-#stats h2 {
+/* Totals. Two columns so the nine numbers fit above the fold of the phone
+   sheet; the distance spans both because eight items pair off under it
+   and it is the one number people ask about. */
+#totals {
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+#totals dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
   margin: 0;
-  padding: 8px 14px 10px;
-  font-size: 15px;
+}
+#totals .hero { grid-column: 1 / -1; }
+#totals dt {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+#totals dd {
+  margin: 0;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.day-list {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 12px;
+#totals .hero dd { font-size: 26px; }
+/* The jump buttons look like the other values apart from the dotted line,
+   which is the usual sign for "tap this" without adding an icon. */
+.jump {
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: inherit;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--muted);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  cursor: pointer;
 }
-.day-list li { margin: 0; }
+.jump:hover { text-decoration-color: var(--link); color: var(--link); }
+.jump:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* Day table. Separate borders, not collapsed ones, because a collapsed
+   border on a sticky header scrolls away with the rows in Chrome. */
+#days {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#days th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 36px;
+  /* 4px, not more: at 320px wide the five headers plus a caret only just
+     fit, and the gutters on the first and last cells already give air. */
+  padding: 0 4px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+  /* Not nowrap: an auto table only squeezes a column below its text width
+     when the row would overflow, so on a phone whose system font is wider
+     than this one "Avg km/h" breaks into two lines rather than pushing the
+     panel sideways. */
+  white-space: normal;
+}
+#days th:first-child { text-align: left; padding-left: 14px; }
+#days th:last-child { padding-right: 14px; }
+#days th button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.2;
+  text-align: inherit;
+  cursor: pointer;
+  /* The whole header cell is the target, since 12px text alone is a thin
+     thing to hit with a thumb. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: inherit;
+  min-height: 36px;
+}
+#days th button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+#days th .caret {
+  display: none;
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+  vertical-align: middle;
+  fill: currentColor;
+}
+#days th[aria-sort] { color: var(--text); }
+#days th[aria-sort] .caret { display: inline-block; }
+#days td {
+  height: 36px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+#days td:last-child { padding-right: 14px; }
+#days td:first-child { padding: 0; text-align: left; }
+#days tbody tr { cursor: pointer; }
+#days tbody tr:hover td { background: var(--row-hover); }
+#days tbody tr.selected td { background: var(--selected-bg); }
+#days tbody tr.selected { font-weight: 600; }
 .day-row {
   width: 100%;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 0 0 0 14px;
   border: 0;
-  border-top: 1px solid var(--border);
   background: none;
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  font-variant-numeric: tabular-nums;
 }
-.day-row:hover { background: var(--row-hover); }
 .day-row:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-.day-row[aria-pressed="true"] {
-  background: var(--selected-bg);
-  font-weight: 600;
-}
 .day-row .swatch {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 3px;
   flex: none;
 }
-.day-row .day-label { flex: 1; }
-.day-row .day-km { color: var(--muted); }
-.day-row[aria-pressed="true"] .day-km { color: var(--text); }
+
+/* The gap list and the note use the same muted 13px type as footnotes
+   to the table; the note gets its own padding because it is a direct
+   child of #stats, not part of #gaps. */
+#gaps {
+  padding: 4px 14px 0;
+}
+#stats h2 {
+  margin: 0;
+  padding: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+#gaps ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#gaps li { padding: 3px 0; }
+#gaps p, #note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+#gaps p { padding: 6px 0 0; }
+#note { padding: 14px 14px 18px; }
 
 #dock {
   grid-area: dock;
@@ -326,7 +456,7 @@ body.sheet-open #stats {
     border-right: 1px solid var(--border);
     transition: none;
   }
-  #stats h2 { padding-top: 14px; }
+  #totals { padding-top: 14px; }
   #dock { border-top: 1px solid var(--border); }
   #chart { height: 120px; }
   #scrubber { padding-right: 16px; gap: 12px; }
@@ -416,8 +546,26 @@ body.sheet-open #stats {
   </div>
 </div>
 <aside id="stats" aria-label="Trip stats">
-  <h2 id="stats-heading"></h2>
-  <ul class="day-list" id="day-list" aria-label="Days"></ul>
+  <section id="totals" aria-label="Trip totals"></section>
+  <table id="days">
+    <caption class="vh">Days</caption>
+    <thead>
+      <tr>
+        <th scope="col"><button type="button" data-sort="date">Day</button></th>
+        <th scope="col"><button type="button" data-sort="km">km</button></th>
+        <th scope="col"><button type="button" data-sort="moving_h">Moving h</button></th>
+        <th scope="col"><button type="button" data-sort="gain_m">Gain m</button></th>
+        <th scope="col"><button type="button" data-sort="avg_kmh">Avg km/h</button></th>
+      </tr>
+    </thead>
+    <tbody id="day-rows"></tbody>
+  </table>
+  <section id="gaps">
+    <h2 id="gaps-heading"></h2>
+    <ul id="gap-list" aria-labelledby="gaps-heading"></ul>
+    <p id="gaps-note"></p>
+  </section>
+  <p id="note"></p>
 </aside>
 <script id="trip-data" type="application/json">__TRIP_DATA__</script>
 <script>
@@ -513,40 +661,166 @@ body.sheet-open #stats {
   const startMarker = endMarker(latlngs[0], 'Start', 'left');
   const finishMarker = endMarker(latlngs[latlngs.length - 1], 'End', 'right');
 
-  // Day list. The heading is built from the totals so it can never drift
-  // from what build.py computed.
+  // Stats panel. Every number comes from the embedded JSON so the page can
+  // never drift from what build.py computed and printed.
   const totals = TRIP.totals;
-  document.getElementById('stats-heading').textContent =
-    'I drove ' + totals.km.toLocaleString('en-CA', { maximumFractionDigits: 0 }) +
-    ' km in ' + totals.days + ' days, ' + totals.first_label + ' to ' + totals.last_label + '.';
+  function fmtInt(n) { return n.toLocaleString('en-CA', { maximumFractionDigits: 0 }); }
+  function fmt1(n) { return n.toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  function el(name, className, text) {
+    const n = document.createElement(name);
+    if (className) n.className = className;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
 
-  const list = document.getElementById('day-list');
+  // Highest, lowest and farthest are places, so their values double as
+  // buttons that put the scrubber marker there.
+  const totalItems = [
+    { label: 'Distance', value: fmtInt(totals.km) + ' km', hero: true },
+    { label: 'Days', value: fmtInt(totals.days) },
+    { label: 'Moving', value: fmtInt(totals.moving_h) + ' h' },
+    { label: 'Climbed', value: fmtInt(totals.gain_m) + ' m' },
+    { label: 'Descended', value: fmtInt(totals.loss_m) + ' m' },
+    { label: 'Highest', value: fmtInt(totals.high_m) + ' m', index: totals.high_idx },
+    { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', index: totals.low_idx },
+    { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx },
+    { label: 'Longest gap', value: fmt1(totals.longest_gap_h) + ' h' }
+  ];
+  const totalsList = el('dl');
+  totalItems.forEach(function (item) {
+    const wrap = el('div', item.hero ? 'hero' : '');
+    wrap.appendChild(el('dt', '', item.label));
+    const dd = el('dd');
+    if (item.index === undefined) {
+      dd.textContent = item.value;
+    } else {
+      const jump = el('button', 'jump', item.value);
+      jump.type = 'button';
+      jump.setAttribute('data-index', String(item.index));
+      jump.addEventListener('click', function () { setIndex(item.index, 'jump'); });
+      dd.appendChild(jump);
+    }
+    wrap.appendChild(dd);
+    totalsList.appendChild(wrap);
+  });
+  document.getElementById('totals').appendChild(totalsList);
+
+  // Day table. The row button carries the accessible name and pressed
+  // state; the click is handled once on the tbody so a tap on the numbers
+  // selects the day too without firing twice when the button is hit.
+  const tbody = document.getElementById('day-rows');
+  const trs = [];
   const rows = TRIP.days.map(function (day, d) {
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
+    const tr = el('tr');
+    tr.setAttribute('data-day', String(d));
+    const btn = el('button', 'day-row');
     btn.type = 'button';
-    btn.className = 'day-row';
     btn.setAttribute('data-day', String(d));
     btn.setAttribute('aria-pressed', 'false');
-    const swatch = document.createElement('span');
-    swatch.className = 'swatch';
+    const swatch = el('span', 'swatch');
     swatch.style.background = day.color;
-    const label = document.createElement('span');
-    label.className = 'day-label';
-    label.textContent = day.label;
-    const km = document.createElement('span');
-    km.className = 'day-km';
-    km.textContent = day.km.toLocaleString('en-CA', {
-      minimumFractionDigits: 1, maximumFractionDigits: 1
-    }) + ' km';
     btn.appendChild(swatch);
-    btn.appendChild(label);
-    btn.appendChild(km);
-    btn.addEventListener('click', function () { selectDay(d); });
-    li.appendChild(btn);
-    list.appendChild(li);
+    btn.appendChild(el('span', 'day-label', day.label));
+    const first = el('td');
+    first.appendChild(btn);
+    tr.appendChild(first);
+    tr.appendChild(el('td', '', fmt1(day.km)));
+    tr.appendChild(el('td', '', fmt1(day.moving_h)));
+    tr.appendChild(el('td', '', fmtInt(day.gain_m)));
+    const avg = el('td', '', day.avg_kmh === null ? '' : fmt1(day.avg_kmh));
+    if (day.avg_kmh === null) avg.setAttribute('aria-label', 'no moving time');
+    tr.appendChild(avg);
+    tbody.appendChild(tr);
+    trs.push(tr);
     return btn;
   });
+  tbody.addEventListener('click', function (e) {
+    const tr = e.target.closest('tr[data-day]');
+    if (tr) selectDay(Number(tr.getAttribute('data-day')));
+  });
+
+  // Sorting moves the existing rows rather than rebuilding them, so the
+  // selection and the buttons' state survive. Ties fall back to date order.
+  const headers = Array.prototype.slice.call(document.querySelectorAll('#days th'));
+  const CARET_UP = 'M4 1.5 7.5 6.5H.5z';
+  const CARET_DOWN = 'M4 6.5 7.5 1.5H.5z';
+  headers.forEach(function (th) {
+    const caret = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    caret.setAttribute('class', 'caret');
+    caret.setAttribute('viewBox', '0 0 8 8');
+    caret.setAttribute('aria-hidden', 'true');
+    caret.setAttribute('focusable', 'false');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', CARET_UP);
+    caret.appendChild(path);
+    th.firstElementChild.appendChild(caret);
+  });
+  let sortKey = null;
+  let sortDir = 'ascending';
+  function sortValue(d) {
+    if (sortKey === 'date') return d;
+    const v = TRIP.days[d][sortKey];
+    // A day with no moving time has no average; it sorts as the lowest
+    // value, so the first, descending, tap keeps the blank cell at the
+    // bottom.
+    return v === null ? -Infinity : v;
+  }
+  function sortRows(key) {
+    if (key === sortKey) {
+      sortDir = sortDir === 'ascending' ? 'descending' : 'ascending';
+    } else {
+      sortKey = key;
+      // Dates read oldest first; for the numbers the big day is the one
+      // people look for, so those start at the top.
+      sortDir = key === 'date' ? 'ascending' : 'descending';
+    }
+    const sign = sortDir === 'ascending' ? 1 : -1;
+    const order = TRIP.days.map(function (day, d) { return d; });
+    order.sort(function (a, b) {
+      const va = sortValue(a);
+      const vb = sortValue(b);
+      if (va === vb) return a - b;
+      return va < vb ? -sign : sign;
+    });
+    order.forEach(function (d) { tbody.appendChild(trs[d]); });
+    headers.forEach(function (th) {
+      const btn = th.firstElementChild;
+      if (btn.getAttribute('data-sort') === sortKey) {
+        th.setAttribute('aria-sort', sortDir);
+        btn.querySelector('path').setAttribute('d', sortDir === 'ascending' ? CARET_UP : CARET_DOWN);
+      } else {
+        th.removeAttribute('aria-sort');
+      }
+    });
+  }
+  document.querySelector('#days thead').addEventListener('click', function (e) {
+    const btn = e.target.closest('button[data-sort]');
+    if (btn) sortRows(btn.getAttribute('data-sort'));
+  });
+
+  // Gaps. The threshold is the one build.py used, so the heading and the
+  // list can never disagree about what counts.
+  const gapH = TRIP.meta.thresholds.gap_h;
+  document.getElementById('gaps-heading').textContent = 'Gaps over ' + gapH.toLocaleString('en-CA') + ' h';
+  const gapList = document.getElementById('gap-list');
+  TRIP.gaps.forEach(function (gap) {
+    let text = gap.from_label + ' to ' + gap.to_label + ', ' + fmt1(gap.hours) + ' h';
+    if (gap.jump_km >= 1) text += ', ' + fmt1(gap.jump_km) + ' km between fixes';
+    gapList.appendChild(el('li', '', text));
+  });
+  document.getElementById('gaps-note').textContent = 'The line breaks there and I do not count that distance.';
+
+  // Note. The fix interval is the median step so the sentence stays true if
+  // the device is ever set to a different rate.
+  const steps = [];
+  for (let i = 1; i < TRIP.points.length; i++) steps.push(TRIP.points[i][3] - TRIP.points[i - 1][3]);
+  steps.sort(function (a, b) { return a - b; });
+  const medianMin = Math.round(steps[steps.length >> 1] / 60);
+  const tzCity = TRIP.meta.tz.split('/').pop().replace(/_/g, ' ');
+  document.getElementById('note').textContent =
+    'Fixes about every ' + medianMin + ' minutes from an inReach while I drove. ' +
+    'Days are ' + tzCity + ' dates the whole way, even in BC. ' +
+    'Everything within ' + TRIP.meta.thresholds.trim_home_km.toLocaleString('en-CA') + ' km of home is cut.';
 
   let selectedDay = null;
 
@@ -572,11 +846,26 @@ body.sheet-open #stats {
     finishMarker.bringToFront();
     rows.forEach(function (row, i) {
       row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
+      // The tint goes on the row, not the button, so the numbers read as
+      // selected along with the label.
+      trs[i].classList.toggle('selected', i === selectedDay);
     });
     fadeChart();
     const stats = document.getElementById('stats');
     if (selectedDay !== null && stats.clientHeight > 0) {
-      rows[selectedDay].scrollIntoView({ block: 'nearest' });
+      // Not scrollIntoView: the sticky header paints over the scrollport
+      // without shrinking it, so a row tucked under the header counts as
+      // visible and never moves. The header height comes off the top.
+      const row = trs[selectedDay].getBoundingClientRect();
+      const box = stats.getBoundingClientRect();
+      const head = document.querySelector('#days thead').offsetHeight;
+      // Rounded up because scrollTop lands on whole pixels and a half
+      // pixel short still clips the row's border.
+      if (row.top < box.top + head) {
+        stats.scrollTop -= Math.ceil(box.top + head - row.top);
+      } else if (row.bottom > box.bottom) {
+        stats.scrollTop += Math.ceil(row.bottom - box.bottom);
+      }
     }
     map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
   }
