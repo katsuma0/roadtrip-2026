@@ -213,6 +213,78 @@ body.sheet-open #stats {
 .day-row .day-km { color: var(--muted); }
 .day-row[aria-pressed="true"] .day-km { color: var(--text); }
 
+#dock {
+  grid-area: dock;
+  position: relative;
+  z-index: 1;
+  background: var(--panel);
+  min-width: 0;
+}
+#chart {
+  display: block;
+  width: 100%;
+  height: 88px;
+  /* The chart is the touch scrubber on phones, so the page must not take
+     a drag on it as a scroll. */
+  touch-action: none;
+  cursor: crosshair;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  overflow: visible;
+}
+#chart text { fill: var(--muted); font-family: inherit; }
+#chart .grid line { stroke: var(--border); stroke-width: 1; }
+#chart .cursor line { stroke: var(--muted); stroke-width: 1; }
+#chart .cursor circle { stroke: var(--panel); stroke-width: 1.5; }
+#chart .day { transition: opacity 0.15s ease; }
+#scrubber {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 0;
+}
+#play {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+#play:hover { background: var(--row-hover); }
+#play:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+#play svg { width: 14px; height: 14px; fill: currentColor; }
+#play .icon-pause { display: none; }
+#play.playing .icon-play { display: none; }
+#play.playing .icon-pause { display: block; }
+#scrub {
+  flex: 1;
+  min-width: 40px;
+  margin: 0;
+  accent-color: var(--link);
+}
+#scrub:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+#readout {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
+}
+#readout .when { color: var(--text); font-weight: 600; }
+/* Fixed widths so the slider does not shift as the numbers change length. */
+#readout .ele { min-width: 6.5ch; text-align: right; }
+#readout .km { min-width: 8.5ch; text-align: right; }
+
 @media (min-width: 768px) {
   body {
     grid-template-columns: 380px 1fr;
@@ -244,6 +316,10 @@ body.sheet-open #stats {
     transition: none;
   }
   #stats h2 { padding-top: 14px; }
+  #dock { border-top: 1px solid var(--border); }
+  #chart { height: 120px; }
+  #scrubber { padding-right: 16px; gap: 12px; }
+  #readout { font-size: 13px; gap: 12px; }
 }
 
 /* Leaflet controls in the page's own colours so they read in both themes. */
@@ -310,7 +386,24 @@ body.sheet-open #stats {
   <span class="vh">Trip stats, </span>
   <span class="handle-text">__TRIP_SUBTITLE__</span>
 </button>
-<!-- #dock (elevation chart and scrubber) goes here; its grid row stays empty until then. -->
+<div id="dock">
+  <svg id="chart" role="img" aria-label="Elevation along the trip"></svg>
+  <div id="scrubber">
+    <button id="play" type="button" aria-label="Play">
+      <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+        <path class="icon-play" d="M3 1.5v11l9.5-5.5z"></path>
+        <g class="icon-pause"><rect x="2.5" y="1.5" width="3.5" height="11"></rect><rect x="8" y="1.5" width="3.5" height="11"></rect></g>
+      </svg>
+    </button>
+    <label for="scrub" class="vh">Position along the trip</label>
+    <input id="scrub" type="range" min="0" max="0" step="1" value="0">
+    <output id="readout" for="scrub" aria-live="off">
+      <span id="readout-when" class="when"></span>
+      <span id="readout-ele" class="ele"></span>
+      <span id="readout-km" class="km"></span>
+    </output>
+  </div>
+</div>
 <aside id="stats" aria-label="Trip stats">
   <h2 id="stats-heading"></h2>
   <ul class="day-list" id="day-list" aria-label="Days"></ul>
@@ -462,6 +555,7 @@ body.sheet-open #stats {
     rows.forEach(function (row, i) {
       row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
     });
+    fadeChart();
     const stats = document.getElementById('stats');
     if (selectedDay !== null && stats.clientHeight > 0) {
       rows[selectedDay].scrollIntoView({ block: 'nearest' });
@@ -488,6 +582,266 @@ body.sheet-open #stats {
   } else {
     handle.addEventListener('click', function () { setTimeout(function () { map.invalidateSize(); }, 250); });
   }
+  // With the dock below it, the map with the sheet open is about a quarter
+  // of a phone screen; keeping the old centre would cut off the start and
+  // end, so the view is fitted again once the height animation ends.
+  document.getElementById('stats').addEventListener('transitionend', function (e) {
+    if (e.propertyName !== 'height') return;
+    map.invalidateSize();
+    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+  });
+
+  // Scrubber. Every change of position goes through setIndex so the map
+  // marker, the slider, the readout and the chart cursor cannot disagree.
+  const points = TRIP.points;
+  const LAST = points.length - 1;
+  const dock = document.getElementById('dock');
+  const chart = document.getElementById('chart');
+  const slider = document.getElementById('scrub');
+  const playBtn = document.getElementById('play');
+  const readWhen = document.getElementById('readout-when');
+  const readEle = document.getElementById('readout-ele');
+  const readKm = document.getElementById('readout-km');
+  slider.max = String(LAST);
+
+  // A pane of its own keeps the marker above the day lines and the start
+  // and end dots, which all share the overlay pane, and below the tooltips.
+  map.createPane('track').style.zIndex = '450';
+  const trackMarker = L.circleMarker(latlngs[0], {
+    pane: 'track', radius: 7, color: '#ffffff', weight: 2, opacity: 1,
+    fillColor: TRIP.days[points[0][5]].color, fillOpacity: 1
+  }).addTo(map);
+
+  let current = 0;
+
+  function setIndex(i, source) {
+    i = Math.max(0, Math.min(LAST, Math.round(Number(i) || 0)));
+    current = i;
+    const p = points[i];
+    const day = TRIP.days[p[5]];
+    trackMarker.setLatLng(latlngs[i]);
+    trackMarker.setStyle({ fillColor: day.color });
+    readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
+    readEle.textContent = Math.round(p[2]).toLocaleString('en-CA') + ' m';
+    readKm.textContent = Math.round(p[4]).toLocaleString('en-CA') + ' km';
+    if (source !== 'slider') slider.value = String(i);
+    moveCursor(i);
+    // On load the map was just fitted to the whole track; a pan here would
+    // nudge that fit by the difference between the two paddings.
+    if (source !== 'init') map.panInside(latlngs[i], { padding: [48, 48] });
+  }
+
+  let timer = null;
+  function setPlaying(on) {
+    playBtn.classList.toggle('playing', on);
+    playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+  }
+  function stopPlay() {
+    if (timer !== null) { clearInterval(timer); timer = null; }
+    setPlaying(false);
+  }
+  function startPlay() {
+    if (timer !== null) return;
+    // Play at the end starts over; otherwise the button would do nothing.
+    if (current >= LAST) setIndex(0, 'play');
+    timer = setInterval(function () {
+      setIndex(current + 1, 'play');
+      if (current >= LAST) stopPlay();
+    }, 30);
+    setPlaying(true);
+  }
+  playBtn.addEventListener('click', function () {
+    if (timer === null) startPlay(); else stopPlay();
+  });
+  slider.addEventListener('input', function () { setIndex(Number(slider.value), 'slider'); });
+
+  // Elevation chart, hand built SVG sized to the dock in CSS pixels.
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const PAD = { left: 36, right: 10, top: 8, bottom: 18 };
+  const Y_STEPS = [100, 200, 250, 500, 1000];
+  const X_STEP_KM = 2000;
+
+  function svgEl(name, attrs) {
+    const n = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (k) { n.setAttribute(k, String(attrs[k])); });
+    return n;
+  }
+
+  let eleMin = Infinity;
+  let eleMax = -Infinity;
+  points.forEach(function (p) {
+    if (p[2] < eleMin) eleMin = p[2];
+    if (p[2] > eleMax) eleMax = p[2];
+  });
+  // The domain rounds out to the first step that gives 3 to 5 ticks. A
+  // floor a few metres below sea level is GPS noise at lake level, so it
+  // snaps to 0 instead of to a tick a whole step further down.
+  function yDomain() {
+    let fit = null;
+    for (let s = 0; s < Y_STEPS.length; s++) {
+      const step = Y_STEPS[s];
+      let lo = Math.floor(eleMin / step) * step;
+      if (lo < 0 && eleMin > -step * 0.05) lo = 0;
+      const hi = Math.ceil(eleMax / step) * step;
+      fit = { lo: lo, hi: hi, step: step };
+      const n = (hi - lo) / step + 1;
+      if (n >= 3 && n <= 5) break;
+    }
+    return fit;
+  }
+  const yDom = yDomain();
+
+  let scale = null;
+  let cursorLine = null;
+  let cursorDot = null;
+  let dayGroups = [];
+  let pressed = false;
+
+  function fadeChart() {
+    dayGroups.forEach(function (g, d) {
+      g.setAttribute('opacity', selectedDay === null || d === selectedDay ? '1' : '0.3');
+    });
+  }
+
+  function moveCursor(i) {
+    if (!scale) return;
+    const cx = scale.x(points[i][4]).toFixed(1);
+    const cy = scale.y(points[i][2]).toFixed(1);
+    cursorLine.setAttribute('x1', cx);
+    cursorLine.setAttribute('x2', cx);
+    cursorDot.setAttribute('cx', cx);
+    cursorDot.setAttribute('cy', cy);
+    cursorDot.setAttribute('fill', TRIP.days[points[i][5]].color);
+  }
+
+  // cum_km never decreases, so the nearest point by distance is found by
+  // bisection rather than a scan over all the points on every pointer move.
+  function nearestIndex(km) {
+    let lo = 0;
+    let hi = LAST;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (points[mid][4] < km) lo = mid + 1; else hi = mid;
+    }
+    if (lo > 0 && km - points[lo - 1][4] < points[lo][4] - km) lo -= 1;
+    return lo;
+  }
+
+  function indexAtClientX(clientX) {
+    const r = chart.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (clientX - r.left - scale.left) / scale.plotW));
+    return nearestIndex(frac * totals.km);
+  }
+
+  function render() {
+    const W = Math.round(dock.getBoundingClientRect().width);
+    const H = Math.round(chart.getBoundingClientRect().height);
+    if (W < 80 || H < 40) return;
+    while (chart.firstChild) chart.removeChild(chart.firstChild);
+    chart.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+    const yTicks = [];
+    for (let v = yDom.lo; v <= yDom.hi; v += yDom.step) {
+      yTicks.push({ v: v, text: v.toLocaleString('en-CA') + (v === yDom.hi ? ' m' : '') });
+    }
+    // The left margin grows past 36px only when the labels need it, which
+    // the unit on the top label can force with a wide system font.
+    let left = PAD.left;
+    const probe = svgEl('text', { x: 0, y: 0 });
+    chart.appendChild(probe);
+    yTicks.forEach(function (t) {
+      probe.textContent = t.text;
+      left = Math.max(left, Math.ceil(probe.getComputedTextLength()) + 8);
+    });
+    chart.removeChild(probe);
+
+    const plotW = W - left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const x = function (km) { return left + plotW * km / totals.km; };
+    const y = function (m) { return PAD.top + plotH * (yDom.hi - m) / (yDom.hi - yDom.lo); };
+    scale = { x: x, y: y, left: left, plotW: plotW };
+
+    const grid = svgEl('g', { class: 'grid' });
+    yTicks.forEach(function (t) {
+      // Half pixel offset so the 1px line lands on one row of pixels.
+      const gy = Math.round(y(t.v)) + 0.5;
+      grid.appendChild(svgEl('line', { x1: left, x2: left + plotW, y1: gy, y2: gy }));
+      const label = svgEl('text', { x: left - 6, y: gy, dy: '0.35em', 'text-anchor': 'end' });
+      label.textContent = t.text;
+      grid.appendChild(label);
+    });
+    const bottom = Math.round(PAD.top + plotH) + 0.5;
+    for (let km = 0; km <= totals.km; km += X_STEP_KM) {
+      const gx = Math.round(x(km)) + 0.5;
+      grid.appendChild(svgEl('line', { x1: gx, x2: gx, y1: bottom, y2: bottom + 3 }));
+      const label = svgEl('text', { x: gx, y: H - 5, 'text-anchor': 'middle' });
+      label.textContent = km.toLocaleString('en-CA') + (km + X_STEP_KM > totals.km ? ' km' : '');
+      grid.appendChild(label);
+    }
+    chart.appendChild(grid);
+
+    // One path per segment, so the chart breaks at the same gaps the map does.
+    const days = svgEl('g', {});
+    dayGroups = TRIP.days.map(function (day) {
+      const g = svgEl('g', { class: 'day' });
+      day.segments.forEach(function (seg) {
+        if (seg[1] <= seg[0]) return;
+        let d = '';
+        for (let i = seg[0]; i <= seg[1]; i++) {
+          d += (i === seg[0] ? 'M' : 'L') + x(points[i][4]).toFixed(1) + ' ' + y(points[i][2]).toFixed(1);
+        }
+        g.appendChild(svgEl('path', {
+          d: d, fill: 'none', stroke: day.color, 'stroke-width': 1.5,
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round'
+        }));
+      });
+      days.appendChild(g);
+      return g;
+    });
+    chart.appendChild(days);
+
+    const cursor = svgEl('g', { class: 'cursor' });
+    cursorLine = svgEl('line', { x1: left, x2: left, y1: PAD.top, y2: PAD.top + plotH });
+    cursorDot = svgEl('circle', { r: 4, cx: left, cy: PAD.top });
+    cursor.appendChild(cursorLine);
+    cursor.appendChild(cursorDot);
+    chart.appendChild(cursor);
+
+    // A transparent rect over the plot takes the pointer so the paths and
+    // labels underneath never swallow a move or a tap.
+    const hit = svgEl('rect', { x: left, y: PAD.top, width: plotW, height: plotH, fill: 'transparent' });
+    hit.addEventListener('pointerdown', function (e) {
+      pressed = true;
+      if (hit.setPointerCapture) hit.setPointerCapture(e.pointerId);
+      setIndex(indexAtClientX(e.clientX), 'chart');
+    });
+    hit.addEventListener('pointermove', function (e) {
+      // A finger only scrubs while it is down; a mouse scrubs on hover.
+      if (e.pointerType === 'mouse' || pressed) setIndex(indexAtClientX(e.clientX), 'chart');
+    });
+    hit.addEventListener('pointerup', function () { pressed = false; });
+    hit.addEventListener('pointercancel', function () { pressed = false; });
+    chart.appendChild(hit);
+
+    fadeChart();
+    moveCursor(current);
+  }
+
+  // The dock changes width on rotation and when the desktop panel resizes
+  // the map; one frame coalesces the bursts a resize produces.
+  let renderFrame = 0;
+  function scheduleRender() {
+    if (renderFrame) return;
+    renderFrame = requestAnimationFrame(function () { renderFrame = 0; render(); });
+  }
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(scheduleRender).observe(dock);
+  } else {
+    window.addEventListener('resize', scheduleRender);
+  }
+
+  render();
+  setIndex(0, 'init');
 })();
 </script>
 </body>
