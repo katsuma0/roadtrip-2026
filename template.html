@@ -429,7 +429,7 @@ body.sheet-open #stats {
 #readout .when { color: var(--text); font-weight: 600; }
 /* Fixed widths so the slider does not shift as the numbers change length. */
 #readout .ele { min-width: 6.5ch; text-align: right; }
-#readout .km { min-width: 8.5ch; text-align: right; }
+#readout .km { min-width: 10.5ch; text-align: right; }
 
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
@@ -984,7 +984,7 @@ body.sheet-open #stats {
     trackMarker.setStyle({ fillColor: day.color });
     readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
     readEle.textContent = Math.round(p[2]).toLocaleString('en-CA') + ' m';
-    readKm.textContent = Math.round(p[4]).toLocaleString('en-CA') + ' km';
+    readKm.textContent = p[4].toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km';
     if (source !== 'slider') slider.value = String(i);
     moveCursor(i);
     // On load the map was just fitted to the whole track; a pan here would

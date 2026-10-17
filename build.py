@@ -440,6 +440,8 @@ def main(argv=None):
     ap.add_argument("--odometer-km", type=float, default=ODOMETER_KM,
                     help="scale distances so the total matches this (default %s, 0 to skip)" % ODOMETER_KM)
     args = ap.parse_args(argv)
+    if not math.isfinite(args.odometer_km) or args.odometer_km < 0:
+        ap.error("--odometer-km must be 0 or a distance in km")
 
     pts = read_gpx(args.gpx)
     pts, dropped_dup = drop_duplicate_times(pts)

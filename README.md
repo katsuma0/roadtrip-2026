@@ -6,7 +6,7 @@ A map of the drive from Markham to British Columbia and back, Sep 5 to Oct 8, 20
 
     python build.py
 
-That reads data/inreach-sep-oct-2026.gpx, prints a table of days and the trip totals, and writes docs/index.html with the stats and every point left after the trim embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title, the subtitle and the data.
+That reads data/inreach-sep-oct-2026.gpx, prints a table of days and the trip totals, and writes docs/index.html with the stats and every point left after the trim embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--odometer-km` (default 12613.7, 0 to skip), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title, the subtitle and the data.
 
 ## Deploy
 
