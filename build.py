@@ -47,7 +47,7 @@ ELEV_THRESHOLD_M = 10.0
 # at home; the README says so.
 TZ_NAME = "America/Toronto"
 
-DEFAULT_TITLE = "Markham to British Columbia and back, Sep 5 to Oct 8, 2026"
+DEFAULT_TITLE = "British Columbia road trip"
 
 # The car's odometer at the end of the trip. A fix every ten minutes cuts
 # every bend into a chord, so the summed track comes out short; every
@@ -414,12 +414,9 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
 def render(template_path, out_path, title, data):
     with open(template_path, encoding="utf-8") as f:
         html = f.read()
-    t = data["totals"]
-    subtitle = "%s km, %d days" % (format(t["km"], ",.0f"), t["days"])
     # A literal </script> inside the JSON would end the script block early.
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     for token, value in (("__TRIP_TITLE__", escape(title)),
-                         ("__TRIP_SUBTITLE__", escape(subtitle)),
                          ("__TRIP_DATA__", blob)):
         if token not in html:
             raise SystemExit("template is missing %s" % token)
