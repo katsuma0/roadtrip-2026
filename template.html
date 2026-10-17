@@ -112,11 +112,6 @@ body {
   font-weight: 600;
   line-height: 1.3;
 }
-#title p {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
 
 #handle {
   grid-area: handle;
@@ -262,7 +257,7 @@ body.sheet-open #stats {
   text-align: right;
   /* Not nowrap: an auto table only squeezes a column below its text width
      when the row would overflow, so on a phone whose system font is wider
-     than this one "Avg km/h" breaks into two lines rather than pushing the
+     than this one "Moving h" breaks into two lines rather than pushing the
      panel sideways. */
   white-space: normal;
 }
@@ -330,34 +325,6 @@ body.sheet-open #stats {
   border-radius: 3px;
   flex: none;
 }
-
-/* The gap list and the note use the same muted 13px type as footnotes
-   to the table; the note gets its own padding because it is a direct
-   child of #stats, not part of #gaps. */
-#gaps {
-  padding: 4px 14px 0;
-}
-#stats h2 {
-  margin: 0;
-  padding: 12px 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-#gaps ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-#gaps li { padding: 3px 0; }
-#gaps p, #note {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-#gaps p { padding: 6px 0 0; }
-#note { padding: 14px 14px 18px; }
 
 #dock {
   grid-area: dock;
@@ -434,7 +401,7 @@ body.sheet-open #stats {
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
      title panel would cover a third of that, including the day the user
-     just tapped. The handle repeats the subtitle, so nothing is lost. */
+     just tapped. The title is only a name, so nothing is lost. */
   body.sheet-open #title { display: none; }
 }
 
@@ -457,7 +424,6 @@ body.sheet-open #stats {
     pointer-events: auto;
   }
   #title h1 { font-size: 18px; }
-  #title p { font-size: 14px; }
   #handle { display: none; }
   .leaflet-container .leaflet-bottom .leaflet-control-attribution { margin-bottom: 0; }
   #stats, body.sheet-open #stats {
@@ -535,13 +501,11 @@ body.sheet-open #stats {
 <body>
 <header id="title">
   <h1>__TRIP_TITLE__</h1>
-  <p>__TRIP_SUBTITLE__</p>
 </header>
 <div id="map"></div>
 <button id="handle" type="button" aria-expanded="false" aria-controls="stats">
   <span class="grip" aria-hidden="true"></span>
-  <span class="vh">Trip stats, </span>
-  <span class="handle-text">__TRIP_SUBTITLE__</span>
+  <span class="handle-text">Trip stats</span>
 </button>
 <div id="dock">
   <svg id="chart" role="img" aria-label="Elevation along the trip"></svg>
@@ -571,17 +535,10 @@ body.sheet-open #stats {
         <th scope="col"><button type="button" data-sort="km">km</button></th>
         <th scope="col"><button type="button" data-sort="moving_h">Moving h</button></th>
         <th scope="col"><button type="button" data-sort="gain_m">Gain m</button></th>
-        <th scope="col"><button type="button" data-sort="avg_kmh">Avg km/h</button></th>
       </tr>
     </thead>
     <tbody id="day-rows"></tbody>
   </table>
-  <section id="gaps">
-    <h2 id="gaps-heading"></h2>
-    <ul id="gap-list" aria-labelledby="gaps-heading"></ul>
-    <p id="gaps-note"></p>
-  </section>
-  <p id="note"></p>
 </aside>
 <script id="trip-data" type="application/json">__TRIP_DATA__</script>
 <script>
@@ -776,9 +733,6 @@ body.sheet-open #stats {
     tr.appendChild(el('td', '', fmt1(day.km)));
     tr.appendChild(el('td', '', fmt1(day.moving_h)));
     tr.appendChild(el('td', '', fmtInt(day.gain_m)));
-    const avg = el('td', '', day.avg_kmh === null ? '' : fmt1(day.avg_kmh));
-    if (day.avg_kmh === null) avg.setAttribute('aria-label', 'no moving time');
-    tr.appendChild(avg);
     tbody.appendChild(tr);
     trs.push(tr);
     return btn;
@@ -807,12 +761,7 @@ body.sheet-open #stats {
   let sortKey = null;
   let sortDir = 'ascending';
   function sortValue(d) {
-    if (sortKey === 'date') return d;
-    const v = TRIP.days[d][sortKey];
-    // A day with no moving time has no average; it sorts as the lowest
-    // value, so the first, descending, tap keeps the blank cell at the
-    // bottom.
-    return v === null ? -Infinity : v;
+    return sortKey === 'date' ? d : TRIP.days[d][sortKey];
   }
   function sortRows(key) {
     if (key === sortKey) {
@@ -847,30 +796,6 @@ body.sheet-open #stats {
     const btn = e.target.closest('button[data-sort]');
     if (btn) sortRows(btn.getAttribute('data-sort'));
   });
-
-  // Gaps. The threshold is the one build.py used, so the heading and the
-  // list can never disagree about what counts.
-  const gapH = TRIP.meta.thresholds.gap_h;
-  document.getElementById('gaps-heading').textContent = 'Gaps over ' + gapH.toLocaleString('en-CA') + ' h';
-  const gapList = document.getElementById('gap-list');
-  TRIP.gaps.forEach(function (gap) {
-    let text = gap.from_label + ' to ' + gap.to_label + ', ' + fmt1(gap.hours) + ' h';
-    if (gap.jump_km >= 1) text += ', ' + fmt1(gap.jump_km) + ' km between fixes';
-    gapList.appendChild(el('li', '', text));
-  });
-  document.getElementById('gaps-note').textContent = 'The line breaks there and I do not count that distance.';
-
-  // Note. The fix interval is the median step so the sentence stays true if
-  // the device is ever set to a different rate.
-  const steps = [];
-  for (let i = 1; i < TRIP.points.length; i++) steps.push(TRIP.points[i][3] - TRIP.points[i - 1][3]);
-  steps.sort(function (a, b) { return a - b; });
-  const medianMin = Math.round(steps[steps.length >> 1] / 60);
-  const tzCity = TRIP.meta.tz.split('/').pop().replace(/_/g, ' ');
-  document.getElementById('note').textContent =
-    'Fixes about every ' + medianMin + ' minutes from an inReach while I drove. ' +
-    'Days are ' + tzCity + ' dates the whole way, even in BC. ' +
-    'Everything within ' + TRIP.meta.thresholds.trim_home_km.toLocaleString('en-CA') + ' km of home is cut.';
 
   let selectedDay = null;
 
