@@ -677,7 +677,19 @@ body.sheet-open #stats {
           lineJoin: 'round', lineCap: 'round'
         });
       }
-      layer.on('click', function () { selectDay(d); });
+      // A tap on the line works like a tap on the chart: the marker jumps
+      // to the nearest fix. Pixels, not degrees, so the pick is the same
+      // at every zoom and latitude.
+      layer.on('click', function (e) {
+        const here = map.latLngToContainerPoint(e.latlng);
+        let best = seg[0];
+        let bestDist = Infinity;
+        for (let i = seg[0]; i <= seg[1]; i++) {
+          const dist = here.distanceTo(map.latLngToContainerPoint(latlngs[i]));
+          if (dist < bestDist) { bestDist = dist; best = i; }
+        }
+        setIndex(best, 'map');
+      });
       group.addLayer(layer);
       dayCoords.push.apply(dayCoords, coords);
     });
