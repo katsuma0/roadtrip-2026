@@ -49,6 +49,11 @@ TZ_NAME = "America/Toronto"
 
 DEFAULT_TITLE = "Markham to British Columbia and back, Sep 5 to Oct 8, 2026"
 
+# The car's odometer at the end of the trip. A fix every ten minutes cuts
+# every bend into a chord, so the summed track comes out short; every
+# distance is scaled so the total lands on this. Zero turns it off.
+ODOMETER_KM = 12613.7
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -214,7 +219,7 @@ def hhmm(t):
     return "%02d:%02d" % (t.hour, t.minute)
 
 
-def compute(pts, tz):
+def compute(pts, tz, odometer_km=ODOMETER_KM):
     n = len(pts)
     if n < 2:
         raise SystemExit("need at least two points after trimming")
@@ -238,6 +243,10 @@ def compute(pts, tz):
     cum = [0.0]
     for s in steps:
         cum.append(cum[-1] + (s["d"] if s["counted"] else 0.0))
+    # Only the distances scale. Speeds keep the raw chord lengths so the
+    # moving test and the max speed do not inflate with them.
+    scale = odometer_km * 1000.0 / cum[-1] if odometer_km > 0 and cum[-1] > 0 else 1.0
+    cum = [c * scale for c in cum]
 
     # Smooth each run between gaps on its own so a 40 km jump does not
     # bleed into the median of the points beside it.
@@ -275,7 +284,7 @@ def compute(pts, tz):
     for i, s in enumerate(steps):
         day = days[pts[i]["day"]]
         if s["counted"]:
-            day["km"] += s["d"] / 1000.0
+            day["km"] += s["d"] * scale / 1000.0
         if s["moving"]:
             day["moving_h"] += s["dt_h"]
             day["max_kmh"] = max(day["max_kmh"], s["speed"])
@@ -360,6 +369,7 @@ def compute(pts, tz):
         "loss_m": sum(d["loss_m"] for d in days),
         "moving_h": round(sum(d["moving_h"] for d in days), 1),
         "start_end_km": round(haversine_m(pts[0], pts[-1]) / 1000.0, 1),
+        "scale": round(scale, 4),
     }
 
     points = [[round(p["lat"], 6), round(p["lon"], 6), int(round(p["ele_s"])),
@@ -392,6 +402,8 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
         t["longest_gap_h"], t["start_end_km"]))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
+    if t["scale"] != 1:
+        print("distances scaled by %.4f to match the odometer" % t["scale"])
     if data["gaps"]:
         print("gaps over %d h, not counted as travel:" % GAP_H)
         for g in data["gaps"]:
@@ -425,12 +437,14 @@ def main(argv=None):
     ap.add_argument("--title", default=DEFAULT_TITLE)
     ap.add_argument("--trim-home-km", type=float, default=1.5,
                     help="drop points within this distance of the first fix (default 1.5)")
+    ap.add_argument("--odometer-km", type=float, default=ODOMETER_KM,
+                    help="scale distances so the total matches this (default %s, 0 to skip)" % ODOMETER_KM)
     args = ap.parse_args(argv)
 
     pts = read_gpx(args.gpx)
     pts, dropped_dup = drop_duplicate_times(pts)
     pts, dropped_home = trim_home(pts, args.trim_home_km)
-    data = compute(pts, local_zone())
+    data = compute(pts, local_zone(), args.odometer_km)
     # The template reads these as meta.thresholds.*, so they stay nested
     # rather than mixed in with the title and zone.
     data["meta"] = {
@@ -444,6 +458,7 @@ def main(argv=None):
             "moving_max_gap_h": MOVING_MAX_GAP_H,
             "elev_threshold_m": ELEV_THRESHOLD_M,
             "median_window": MEDIAN_WINDOW,
+            "odometer_km": args.odometer_km,
         },
     }
     print_summary(data, dropped_dup, dropped_home, args.trim_home_km)

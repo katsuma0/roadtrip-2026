@@ -14,7 +14,7 @@ GitHub Pages serves the docs folder from main. In the repo settings under Pages,
 
 ## How the numbers are made
 
-Distance is haversine between consecutive fixes, and any step under 20 m is ignored so a parked device does not add jitter. A step counts as moving when the implied speed is over 5 km/h and the two fixes are under 3 h apart; average moving speed is the day's distance over its moving time. Elevation goes through a rolling median over 5 points first, and gain and loss only move when the smoothed line gets more than 10 m from the last counted level. The highest and lowest points come from that smoothed line too, which is why the lowest point reads a few metres below sea level near the coast.
+Distance is haversine between consecutive fixes, scaled so the total matches the odometer at 12,613.7 km, since a fix every ten minutes cuts every bend into a chord. Any step under 20 m is ignored so a parked device does not add jitter. A step counts as moving when the implied speed is over 5 km/h and the two fixes are under 3 h apart; average moving speed is the day's distance over its moving time. Elevation goes through a rolling median over 5 points first, and gain and loss only move when the smoothed line gets more than 10 m from the last counted level. The highest and lowest points come from that smoothed line too, which is why the lowest point reads a few metres below sea level near the coast.
 
 Any silence over 6 h is a gap. The line breaks there, the distance between the two fixes is not counted, and the gap shows in the stats. There are four, the longest 15.7 h.
 

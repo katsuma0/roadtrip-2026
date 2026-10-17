@@ -713,7 +713,7 @@ body.sheet-open #stats {
   // Highest, lowest and farthest are places, so their values double as
   // buttons that put the scrubber marker there.
   const totalItems = [
-    { label: 'Distance', value: fmtInt(totals.km) + ' km', hero: true },
+    { label: 'Distance', value: fmt1(totals.km) + ' km', hero: true },
     { label: 'Days', value: fmtInt(totals.days) },
     { label: 'Moving', value: fmtInt(totals.moving_h) + ' h' },
     { label: 'Climbed', value: fmtInt(totals.gain_m) + ' m' },
