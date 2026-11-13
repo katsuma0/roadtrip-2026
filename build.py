@@ -49,6 +49,20 @@ STAY_RADIUS_M = 300.0
 STAY_MIN_H = 6.0
 NIGHT_HOUR = 3
 
+# Province borders, simplified to where the road crosses them. The prairie
+# borders are a meridian each, the Ontario line is the one west of Kenora,
+# the Manitoba line steps west as it goes north, and the BC line follows
+# the passes the highways use until it meets the 120th meridian. A crossing
+# can land a few kilometres off, which is a few minutes of a day.
+PROVINCES = [("ON", "Ontario"), ("MB", "Manitoba"), ("SK", "Saskatchewan"),
+             ("AB", "Alberta"), ("BC", "British Columbia")]
+ON_MB_LON = -95.153
+AB_SK_LON = -110.0
+MB_SK_LINE = [(49.0, -101.36), (50.9, -101.45), (52.0, -101.6),
+              (53.0, -101.75), (55.0, -102.0), (60.0, -102.0)]
+AB_BC_LINE = [(49.0, -114.07), (49.63, -114.68), (50.6, -115.3), (51.45, -116.3),
+              (52.3, -117.6), (52.9, -118.4), (53.8, -120.0), (60.0, -120.0)]
+
 # The whole trip is grouped by Toronto dates even though it crossed three
 # time zones. One clock keeps the day table honest about calendar days
 # at home; the README says so.
@@ -224,6 +238,44 @@ def day_label(d):
 
 def hhmm(t):
     return "%02d:%02d" % (t.hour, t.minute)
+
+
+def lon_on_line(line, lat):
+    """Longitude of a north to south border line at this latitude."""
+    if lat <= line[0][0]:
+        return line[0][1]
+    for (la1, lo1), (la2, lo2) in zip(line, line[1:]):
+        if la1 <= lat <= la2:
+            return lo1 + (lo2 - lo1) * (lat - la1) / (la2 - la1)
+    return line[-1][1]
+
+
+def province(lat, lon):
+    if lon > ON_MB_LON:
+        return "ON"
+    if lon > lon_on_line(MB_SK_LINE, lat):
+        return "MB"
+    if lon > AB_SK_LON:
+        return "SK"
+    if lon > lon_on_line(AB_BC_LINE, lat):
+        return "AB"
+    return "BC"
+
+
+def time_by_province(pts, steps):
+    """Hours per province in the order they were entered. A step counts
+    for the province its first fix is in, nights and gaps included, since
+    the car was there for those too."""
+    hours = {}
+    order = []
+    for i, s in enumerate(steps):
+        code = province(pts[i]["lat"], pts[i]["lon"])
+        if code not in hours:
+            hours[code] = 0.0
+            order.append(code)
+        hours[code] += s["dt_h"]
+    names = dict(PROVINCES)
+    return [{"code": c, "name": names[c], "hours": round(hours[c], 1)} for c in order]
 
 
 def find_nights(pts):
@@ -438,8 +490,10 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
     nights = find_nights(pts)
     totals["nights"] = sum(sp["nights"] for sp in nights)
     totals["night_spots"] = len(nights)
+    provinces = time_by_province(pts, steps)
 
-    return {"points": points, "days": days, "gaps": gaps, "nights": nights, "totals": totals}
+    return {"points": points, "days": days, "gaps": gaps, "nights": nights,
+            "provinces": provinces, "totals": totals}
 
 
 def print_summary(data, dropped_dup, dropped_home, trim_km):
@@ -464,6 +518,8 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
     print("longest gap with no points %.1f h, start and end %.1f km apart" % (
         t["longest_gap_h"], t["start_end_km"]))
     print("%d nights at %d spots" % (t["nights"], t["night_spots"]))
+    print("time by province: " + ", ".join(
+        "%s %.0f h" % (p["name"], p["hours"]) for p in data["provinces"]))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
     if t["scale"] != 1:
