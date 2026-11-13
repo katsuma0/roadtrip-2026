@@ -42,6 +42,27 @@ GAP_H = 6.0
 MEDIAN_WINDOW = 5
 ELEV_THRESHOLD_M = 10.0
 
+# A stay is a run of fixes that never leaves this radius of its first fix.
+# One that lasts this long and spans three in the morning at home is a
+# night. Three is late enough to be night in BC too, where it is midnight.
+STAY_RADIUS_M = 300.0
+STAY_MIN_H = 6.0
+NIGHT_HOUR = 3
+
+# Province borders, simplified to where the road crosses them. The prairie
+# borders are a meridian each, the Ontario line is the one west of Kenora,
+# the Manitoba line steps west as it goes north, and the BC line follows
+# the passes the highways use until it meets the 120th meridian. A crossing
+# can land a few kilometres off, which is a few minutes of a day.
+PROVINCES = [("ON", "Ontario"), ("MB", "Manitoba"), ("SK", "Saskatchewan"),
+             ("AB", "Alberta"), ("BC", "British Columbia")]
+ON_MB_LON = -95.153
+AB_SK_LON = -110.0
+MB_SK_LINE = [(49.0, -101.36), (50.9, -101.45), (52.0, -101.6),
+              (53.0, -101.75), (55.0, -102.0), (60.0, -102.0)]
+AB_BC_LINE = [(49.0, -114.07), (49.63, -114.68), (50.6, -115.3), (51.45, -116.3),
+              (52.3, -117.6), (52.9, -118.4), (53.8, -120.0), (60.0, -120.0)]
+
 # The whole trip is grouped by Toronto dates even though it crossed three
 # time zones. One clock keeps the day table honest about calendar days
 # at home; the README says so.
@@ -219,6 +240,96 @@ def hhmm(t):
     return "%02d:%02d" % (t.hour, t.minute)
 
 
+def lon_on_line(line, lat):
+    """Longitude of a north to south border line at this latitude."""
+    if lat <= line[0][0]:
+        return line[0][1]
+    for (la1, lo1), (la2, lo2) in zip(line, line[1:]):
+        if la1 <= lat <= la2:
+            return lo1 + (lo2 - lo1) * (lat - la1) / (la2 - la1)
+    return line[-1][1]
+
+
+def province(lat, lon):
+    if lon > ON_MB_LON:
+        return "ON"
+    if lon > lon_on_line(MB_SK_LINE, lat):
+        return "MB"
+    if lon > AB_SK_LON:
+        return "SK"
+    if lon > lon_on_line(AB_BC_LINE, lat):
+        return "AB"
+    return "BC"
+
+
+def time_by_province(pts, steps):
+    """Hours per province in the order they were entered. A step counts
+    for the province its first fix is in, nights and gaps included, since
+    the car was there for those too."""
+    hours = {}
+    order = []
+    for i, s in enumerate(steps):
+        code = province(pts[i]["lat"], pts[i]["lon"])
+        if code not in hours:
+            hours[code] = 0.0
+            order.append(code)
+        hours[code] += s["dt_h"]
+    names = dict(PROVINCES)
+    return [{"code": c, "name": names[c], "hours": round(hours[c], 1)} for c in order]
+
+
+def find_nights(pts):
+    """One entry per spot slept at, with how many nights in a row."""
+    n = len(pts)
+    stays = []
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and haversine_m(pts[i], pts[j + 1]) <= STAY_RADIUS_M:
+            j += 1
+        if (pts[j]["t"] - pts[i]["t"]).total_seconds() >= STAY_MIN_H * 3600:
+            stays.append((i, j))
+        i = j + 1
+
+    nights = []
+    anchor = pts[0]["local"].replace(hour=NIGHT_HOUR, minute=0, second=0, microsecond=0)
+    if anchor <= pts[0]["local"]:
+        anchor += timedelta(days=1)
+    while anchor < pts[-1]["local"]:
+        date = (anchor - timedelta(days=1)).date()
+        hit = [(a, b) for a, b in stays if pts[a]["local"] <= anchor <= pts[b]["local"]]
+        if hit:
+            nights.append({"idx": hit[0][0], "date": date, "off": False})
+        else:
+            # No stay covers the night, so the device was off. The last fix
+            # before it is the best guess at where the night was spent.
+            k = max(i for i in range(n) if pts[i]["local"] < anchor)
+            nights.append({"idx": k, "date": date, "off": True})
+        anchor += timedelta(days=1)
+
+    spots = []
+    for night in nights:
+        last = spots[-1] if spots else None
+        same_spot = (last is not None and not night["off"] and not last["off"]
+                     and haversine_m(pts[last["idx"]], pts[night["idx"]]) <= STAY_RADIUS_M
+                     and night["date"] == last["to"] + timedelta(days=1))
+        if same_spot:
+            last["nights"] += 1
+            last["to"] = night["date"]
+        else:
+            spots.append({"idx": night["idx"], "nights": 1, "from": night["date"],
+                          "to": night["date"], "off": night["off"]})
+    return [{
+        "idx": sp["idx"],
+        "lat": round(pts[sp["idx"]]["lat"], 6),
+        "lon": round(pts[sp["idx"]]["lon"], 6),
+        "nights": sp["nights"],
+        "from_label": day_label(sp["from"]),
+        "to_label": day_label(sp["to"]),
+        "off": sp["off"],
+    } for sp in spots]
+
+
 def compute(pts, tz, odometer_km=ODOMETER_KM):
     n = len(pts)
     if n < 2:
@@ -376,7 +487,13 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
                int(p["t"].timestamp()), round(c / 1000.0, 2), p["day"]]
               for p, c in zip(pts, cum)]
 
-    return {"points": points, "days": days, "gaps": gaps, "totals": totals}
+    nights = find_nights(pts)
+    totals["nights"] = sum(sp["nights"] for sp in nights)
+    totals["night_spots"] = len(nights)
+    provinces = time_by_province(pts, steps)
+
+    return {"points": points, "days": days, "gaps": gaps, "nights": nights,
+            "provinces": provinces, "totals": totals}
 
 
 def print_summary(data, dropped_dup, dropped_home, trim_km):
@@ -400,6 +517,9 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
         t["high_m"], t["low_m"], format(t["farthest_km"], ",d")))
     print("longest gap with no points %.1f h, start and end %.1f km apart" % (
         t["longest_gap_h"], t["start_end_km"]))
+    print("%d nights at %d spots" % (t["nights"], t["night_spots"]))
+    print("time by province: " + ", ".join(
+        "%s %.0f h" % (p["name"], p["hours"]) for p in data["provinces"]))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
     if t["scale"] != 1:
