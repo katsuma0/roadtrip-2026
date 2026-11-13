@@ -444,9 +444,10 @@ body.sheet-open #stats {
 /* The casing under each day line takes the panel colour: white under the
    light tiles, near black under the inverted dark ones. */
 .leaflet-overlay-pane path.casing { stroke: var(--panel); }
-/* Night dots are ink on paper in both themes, the reverse of the start
-   and end dots, so the two kinds read apart at a glance. */
-.leaflet-pane path.night { fill: var(--text); stroke: var(--panel); }
+/* Night dots stay dark with a white ring in both themes, the reverse of
+   the white start and end dots, so the two kinds read apart at a glance
+   on the inverted dark tiles too. */
+.leaflet-pane path.night { fill: #1b1b1b; stroke: #ffffff; }
 
 /* Leaflet controls in the page's own colours so they read in both themes. */
 .leaflet-container {
