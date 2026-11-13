@@ -444,6 +444,9 @@ body.sheet-open #stats {
 /* The casing under each day line takes the panel colour: white under the
    light tiles, near black under the inverted dark ones. */
 .leaflet-overlay-pane path.casing { stroke: var(--panel); }
+/* Night dots are ink on paper in both themes, the reverse of the start
+   and end dots, so the two kinds read apart at a glance. */
+.leaflet-pane path.night { fill: var(--text); stroke: var(--panel); }
 
 /* Leaflet controls in the page's own colours so they read in both themes. */
 .leaflet-container {
@@ -909,6 +912,26 @@ body.sheet-open #stats {
     pane: 'track', radius: 7, color: '#ffffff', weight: 2, opacity: 1,
     fillColor: TRIP.days[points[0][5]].color, fillOpacity: 1
   }).addTo(map);
+
+  // Night stops. Dark dots in their own pane so they sit on the lines and
+  // under the moving marker. A tap jumps the scrubber to that fix.
+  map.createPane('nights').style.zIndex = '440';
+  TRIP.nights.forEach(function (spot) {
+    const dot = L.circleMarker([spot.lat, spot.lon], {
+      pane: 'nights', className: 'night', radius: 4.5, weight: 2, opacity: 1, fillOpacity: 1
+    });
+    let text = spot.nights === 1
+      ? 'Night of ' + spot.from_label
+      : spot.from_label + ' to ' + spot.to_label + ', ' + spot.nights + ' nights';
+    if (spot.off) text += ', last fix before the device went off';
+    dot.bindTooltip(text);
+    dot.on('click', function (e) {
+      // Stopped here so the map does not also treat it as a tap on the line.
+      L.DomEvent.stop(e);
+      setIndex(spot.idx, 'night');
+    });
+    dot.addTo(map);
+  });
 
   let current = 0;
 
