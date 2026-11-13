@@ -441,6 +441,28 @@ body.sheet-open #stats {
   #readout { font-size: 13px; gap: 12px; }
 }
 
+#provinces { padding: 14px 14px 18px; }
+#provinces h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+#provinces dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+#provinces dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* The casing under each day line takes the panel colour: white under the
    light tiles, near black under the inverted dark ones. */
 .leaflet-overlay-pane path.casing { stroke: var(--panel); }
@@ -542,6 +564,10 @@ body.sheet-open #stats {
     </thead>
     <tbody id="day-rows"></tbody>
   </table>
+  <section id="provinces" aria-label="Time in each province">
+    <h2>Time in each province</h2>
+    <dl id="province-list"></dl>
+  </section>
 </aside>
 <script id="trip-data" type="application/json">__TRIP_DATA__</script>
 <script>
@@ -733,6 +759,20 @@ body.sheet-open #stats {
     totalsList.appendChild(wrap);
   });
   document.getElementById('totals').appendChild(totalsList);
+
+  // Time in each province, in the order they were entered. Whole hours,
+  // since the borders are drawn simply and a crossing can be minutes off.
+  function fmtDuration(h) {
+    const whole = Math.round(h);
+    const days = Math.floor(whole / 24);
+    const rest = whole - days * 24;
+    return (days ? days + ' d ' : '') + rest + ' h';
+  }
+  const provinceList = document.getElementById('province-list');
+  TRIP.provinces.forEach(function (prov) {
+    provinceList.appendChild(el('dt', '', prov.name));
+    provinceList.appendChild(el('dd', '', fmtDuration(prov.hours)));
+  });
 
   // Day table. The row button carries the accessible name and pressed
   // state; the click is handled once on the tbody so a tap on the numbers
