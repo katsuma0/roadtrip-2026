@@ -738,8 +738,7 @@ body.sheet-open #stats {
     { label: 'Descended', value: fmtInt(totals.loss_m) + ' m' },
     { label: 'Highest', value: fmtInt(totals.high_m) + ' m', index: totals.high_idx },
     { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', index: totals.low_idx },
-    { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx },
-    { label: 'Longest gap', value: fmt1(totals.longest_gap_h) + ' h' }
+    { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx }
   ];
   const totalsList = el('dl');
   totalItems.forEach(function (item) {
