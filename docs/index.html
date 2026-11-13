@@ -622,7 +622,7 @@ body.sheet-open #stats {
       if (coords.length === 1) {
         layer = L.circleMarker(coords[0], {
           radius: 3, color: day.color, fillColor: day.color,
-          weight: 1, opacity: LINE_OPACITY, fillOpacity: LINE_OPACITY
+          weight: 1, opacity: LINE_OPACITY, fillOpacity: LINE_OPACITY, interactive: false
         });
       } else {
         // A casing under each line keeps the colour readable over the
@@ -632,30 +632,50 @@ body.sheet-open #stats {
           className: 'casing', weight: LINE_WEIGHT + 3, opacity: CASING_OPACITY,
           lineJoin: 'round', lineCap: 'round', interactive: false
         }));
+        // Not interactive: the map itself takes the tap, so the target is
+        // a thumb's width around the line rather than the line's 3px.
         layer = L.polyline(coords, {
           color: day.color, weight: LINE_WEIGHT, opacity: LINE_OPACITY,
-          lineJoin: 'round', lineCap: 'round'
+          lineJoin: 'round', lineCap: 'round', interactive: false
         });
       }
-      // A tap on the line works like a tap on the chart: the marker jumps
-      // to the nearest fix. Pixels, not degrees, so the pick is the same
-      // at every zoom and latitude.
-      layer.on('click', function (e) {
-        const here = map.latLngToContainerPoint(e.latlng);
-        let best = seg[0];
-        let bestDist = Infinity;
-        for (let i = seg[0]; i <= seg[1]; i++) {
-          const dist = here.distanceTo(map.latLngToContainerPoint(latlngs[i]));
-          if (dist < bestDist) { bestDist = dist; best = i; }
-        }
-        setIndex(best, 'map');
-      });
       group.addLayer(layer);
       dayCoords.push.apply(dayCoords, coords);
     });
     group.addTo(map);
     dayLayers.push(group);
     dayBounds.push(L.latLngBounds(dayCoords));
+  });
+
+  // A tap anywhere within a thumb's width of the track jumps the marker
+  // to the nearest fix, like a touch on the chart. The distance is to the
+  // drawn line segments in pixels, so it works at every zoom: between two
+  // fixes a tap lands on whichever end is closer.
+  const TAP_RADIUS_PX = 28;
+  const drawn = [];
+  TRIP.days.forEach(function (day) {
+    day.segments.forEach(function (seg) {
+      for (let i = seg[0]; i < seg[1]; i++) drawn.push(i);
+    });
+  });
+  map.on('click', function (e) {
+    const here = map.latLngToContainerPoint(e.latlng);
+    let best = -1;
+    let bestDist = TAP_RADIUS_PX;
+    drawn.forEach(function (i) {
+      const a = map.latLngToContainerPoint(latlngs[i]);
+      const b = map.latLngToContainerPoint(latlngs[i + 1]);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      let t = len2 === 0 ? 0 : ((here.x - a.x) * dx + (here.y - a.y) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a.x + t * dx;
+      const py = a.y + t * dy;
+      const dist = Math.sqrt((here.x - px) * (here.x - px) + (here.y - py) * (here.y - py));
+      if (dist < bestDist) { bestDist = dist; best = t < 0.5 ? i : i + 1; }
+    });
+    if (best >= 0) setIndex(best, 'map');
   });
 
   // Start and end are a few kilometres apart (totals.start_end_km), so at
