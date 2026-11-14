@@ -42,6 +42,13 @@ GAP_H = 6.0
 MEDIAN_WINDOW = 5
 ELEV_THRESHOLD_M = 10.0
 
+# A stay is a run of fixes that never leaves this radius of its first fix.
+# One that lasts this long and spans three in the morning at home is a
+# night. Three is late enough to be night in BC too, where it is midnight.
+STAY_RADIUS_M = 300.0
+STAY_MIN_H = 6.0
+NIGHT_HOUR = 3
+
 # The whole trip is grouped by Toronto dates even though it crossed three
 # time zones. One clock keeps the day table honest about calendar days
 # at home; the README says so.
@@ -219,6 +226,58 @@ def hhmm(t):
     return "%02d:%02d" % (t.hour, t.minute)
 
 
+def find_nights(pts):
+    """One entry per spot slept at, with how many nights in a row."""
+    n = len(pts)
+    stays = []
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and haversine_m(pts[i], pts[j + 1]) <= STAY_RADIUS_M:
+            j += 1
+        if (pts[j]["t"] - pts[i]["t"]).total_seconds() >= STAY_MIN_H * 3600:
+            stays.append((i, j))
+        i = j + 1
+
+    nights = []
+    anchor = pts[0]["local"].replace(hour=NIGHT_HOUR, minute=0, second=0, microsecond=0)
+    if anchor <= pts[0]["local"]:
+        anchor += timedelta(days=1)
+    while anchor < pts[-1]["local"]:
+        date = (anchor - timedelta(days=1)).date()
+        hit = [(a, b) for a, b in stays if pts[a]["local"] <= anchor <= pts[b]["local"]]
+        if hit:
+            nights.append({"idx": hit[0][0], "date": date, "off": False})
+        else:
+            # No stay covers the night, so the device was off. The last fix
+            # before it is the best guess at where the night was spent.
+            k = max(i for i in range(n) if pts[i]["local"] < anchor)
+            nights.append({"idx": k, "date": date, "off": True})
+        anchor += timedelta(days=1)
+
+    spots = []
+    for night in nights:
+        last = spots[-1] if spots else None
+        same_spot = (last is not None and not night["off"] and not last["off"]
+                     and haversine_m(pts[last["idx"]], pts[night["idx"]]) <= STAY_RADIUS_M
+                     and night["date"] == last["to"] + timedelta(days=1))
+        if same_spot:
+            last["nights"] += 1
+            last["to"] = night["date"]
+        else:
+            spots.append({"idx": night["idx"], "nights": 1, "from": night["date"],
+                          "to": night["date"], "off": night["off"]})
+    return [{
+        "idx": sp["idx"],
+        "lat": round(pts[sp["idx"]]["lat"], 6),
+        "lon": round(pts[sp["idx"]]["lon"], 6),
+        "nights": sp["nights"],
+        "from_label": day_label(sp["from"]),
+        "to_label": day_label(sp["to"]),
+        "off": sp["off"],
+    } for sp in spots]
+
+
 def compute(pts, tz, odometer_km=ODOMETER_KM):
     n = len(pts)
     if n < 2:
@@ -376,7 +435,11 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
                int(p["t"].timestamp()), round(c / 1000.0, 2), p["day"]]
               for p, c in zip(pts, cum)]
 
-    return {"points": points, "days": days, "gaps": gaps, "totals": totals}
+    nights = find_nights(pts)
+    totals["nights"] = sum(sp["nights"] for sp in nights)
+    totals["night_spots"] = len(nights)
+
+    return {"points": points, "days": days, "gaps": gaps, "nights": nights, "totals": totals}
 
 
 def print_summary(data, dropped_dup, dropped_home, trim_km):
@@ -400,6 +463,7 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
         t["high_m"], t["low_m"], format(t["farthest_km"], ",d")))
     print("longest gap with no points %.1f h, start and end %.1f km apart" % (
         t["longest_gap_h"], t["start_end_km"]))
+    print("%d nights at %d spots" % (t["nights"], t["night_spots"]))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
     if t["scale"] != 1:
