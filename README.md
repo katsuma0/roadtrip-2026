@@ -18,6 +18,8 @@ Distance is haversine between consecutive fixes, scaled so the total matches the
 
 Any silence over 6 h is a gap. The line breaks there and the distance between the two fixes is not counted. There are four, and the longest, 15.7 h, is the one number about them the page shows.
 
+Time in each province adds up the time between fixes by which side of the border each fix sits on. The borders are drawn the simple way: the Ontario line west of Kenora, the Manitoba line stepping west as it goes north, the 110th meridian for Alberta, and for BC the 120th meridian in the Peace country and a line through the mountain passes south of it. A crossing can be off by a few kilometres, so the hours are good to about the hour.
+
 Days are America/Toronto dates. The trip crossed into Central, Mountain and Pacific time, so a day in the table is a Toronto calendar day even where the clock on the dash said something else. That is a deliberate simplification; one clock keeps the table honest about calendar days at home.
 
 After the 1.5 km trim the start and end are 2.8 km apart, not 1.5 km. The first surviving fix is already 6.9 km from home and the last one is 5.1 km out, because the device logged every 10 minutes and I was on the highway. The threshold stayed at 1.5 km.
