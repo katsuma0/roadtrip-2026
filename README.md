@@ -16,7 +16,7 @@ GitHub Pages serves the docs folder from main. In the repo settings under Pages,
 
 Distance is haversine between consecutive fixes, scaled so the total matches the odometer at 12,613.7 km, since a fix every ten minutes cuts every bend into a chord. Any step under 20 m is ignored so a parked device does not add jitter. A step counts as moving when the implied speed is over 5 km/h and the two fixes are under 3 h apart; average moving speed is the day's distance over its moving time. Elevation goes through a rolling median over 5 points first, and gain and loss only move when the smoothed line gets more than 10 m from the last counted level. The highest and lowest points come from that smoothed line too, which is why the lowest point reads a few metres below sea level near the coast.
 
-Any silence over 6 h is a gap. The line breaks there and the distance between the two fixes is not counted. There are four, and the longest, 15.7 h, is the one number about them the page shows.
+Any silence over 6 h is a gap. The line breaks there and the distance between the two fixes is not counted. There are four. build.py prints each one; the page only breaks the line there.
 
 Time in each province adds up the time between fixes by which side of the border each fix sits on. The borders are drawn the simple way: the Ontario line west of Kenora, the Manitoba line stepping west as it goes north, the 110th meridian for Alberta, and for BC the 120th meridian in the Peace country and a line through the mountain passes south of it. A crossing can be off by a few kilometres, so the hours are good to about the hour.
 

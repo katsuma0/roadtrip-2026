@@ -185,9 +185,10 @@ body.sheet-open #stats {
   transition: height 0.2s ease, visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
-/* Totals. Two columns so the nine numbers fit above the fold of the phone
-   sheet; the distance spans both because eight items pair off under it
-   and it is the one number people ask about. */
+/* Totals. Two columns so the eight numbers fit above the fold of the
+   phone sheet. The distance spans both because it is the one number
+   people ask about, and the last tile spans both too so the odd seven
+   under it do not leave a hole in the grid. */
 #totals {
   padding: 10px 14px 12px;
   border-bottom: 1px solid var(--border);
@@ -198,7 +199,7 @@ body.sheet-open #stats {
   gap: 10px 12px;
   margin: 0;
 }
-#totals .hero { grid-column: 1 / -1; }
+#totals .hero, #totals dl > div:last-child { grid-column: 1 / -1; }
 #totals dt {
   font-size: 12px;
   color: var(--muted);
@@ -739,8 +740,7 @@ body.sheet-open #stats {
     { label: 'Descended', value: fmtInt(totals.loss_m) + ' m' },
     { label: 'Highest', value: fmtInt(totals.high_m) + ' m', index: totals.high_idx },
     { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', index: totals.low_idx },
-    { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx },
-    { label: 'Longest gap', value: fmt1(totals.longest_gap_h) + ' h' }
+    { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx }
   ];
   const totalsList = el('dl');
   totalItems.forEach(function (item) {
