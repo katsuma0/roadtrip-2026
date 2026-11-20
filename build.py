@@ -358,8 +358,8 @@ def province_visits(pts, steps):
 
 
 def minutes_after(midnight, t):
-    """Minutes from a day's midnight. A finish after midnight comes out
-    past 1440, so it still counts as later than one at 23:50."""
+    """Minutes from a day's midnight, unrounded, so two days whose start or
+    finish reads the same on the clock still have one that came first."""
     return (t - midnight).total_seconds() / 60.0
 
 
@@ -384,25 +384,34 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
     def add(key, label, value_text, day=None, idx=None):
         out.append({"key": key, "label": label, "value_text": value_text, "day": day, "idx": idx})
 
+    # A track with no driving or no night stop has nothing to pick for some
+    # of these, and the page draws whichever records there are, so those
+    # are left out rather than stopping the build.
     d = pick(moving, lambda d: days[d]["km"])
-    add("longest_day", "Longest day", "%s km" % format(days[d]["km"], ",.1f"), d)
+    if d is not None:
+        add("longest_day", "Longest day", "%s km" % format(days[d]["km"], ",.1f"), d)
     d = pick(moving, lambda d: days[d]["moving_h"])
-    add("longest_wheel", "Longest at the wheel", "%.1f h" % days[d]["moving_h"], d)
+    if d is not None:
+        add("longest_wheel", "Longest at the wheel", "%.1f h" % days[d]["moving_h"], d)
     d = pick(moving, lambda d: days[d]["gain_m"])
-    add("most_climbing", "Most climbing", "%s m" % format(days[d]["gain_m"], ",d"), d)
+    if d is not None:
+        add("most_climbing", "Most climbing", "%s m" % format(days[d]["gain_m"], ",d"), d)
     # Picked on the exact minutes, so wall clock rounding cannot tie two.
     d = pick(driven, lambda d: minutes_after(midnight[d], starts[d]), largest=False)
-    add("earliest_start", "Earliest start", hhmm(starts[d]), d)
+    if d is not None:
+        add("earliest_start", "Earliest start", hhmm(starts[d]), d)
     d = pick(driven, lambda d: minutes_after(midnight[d], ends[d]))
-    add("latest_finish", "Latest finish",
-        hhmm(ends[d]) + (" next day" if days[d]["end_next_day"] else ""), d)
+    if d is not None:
+        add("latest_finish", "Latest finish", hhmm(ends[d]), d)
     d = pick(moving, lambda d: days[d]["km"], largest=False)
-    add("shortest_day", "Shortest day", "%s km" % format(days[d]["km"], ",.1f"), d)
+    if d is not None:
+        add("shortest_day", "Shortest day", "%s km" % format(days[d]["km"], ",.1f"), d)
     # The first date of the stay is the day that ended there.
     k = pick(range(len(nights)), lambda k: nights[k]["nights"])
-    day_of = {dt: i for i, dt in enumerate(dates)}
-    add("most_nights", "Most nights in one place", "%d nights" % nights[k]["nights"],
-        day_of.get(spans[k][0]), nights[k]["idx"])
+    if k is not None:
+        day_of = {dt: i for i, dt in enumerate(dates)}
+        add("most_nights", "Most nights in one place", "%d nights" % nights[k]["nights"],
+            day_of.get(spans[k][0]), nights[k]["idx"])
     return out
 
 
@@ -534,15 +543,18 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
         day["color"] = colours[di]
         day["weekday"] = WEEKDAYS[dates[di].weekday()]
 
-    # When each day's driving started and stopped. Not the first and last
-    # fix, since a night stay carries fixes past midnight, and not plainly
-    # the first and last moving step either: the days are Toronto dates, so
-    # an evening in BC runs past midnight and a day would start at 00:16 in
-    # the middle of the last day's drive. Moving steps are joined into
-    # drives wherever the car stopped for less than a night, and a day runs
-    # from the first drive that starts on it to the end of its last one,
-    # which can be after midnight. A day with no drive of its own (the
-    # last one, the end of a drive home) falls back to its moving steps.
+    # When each day's driving started and stopped, as its first and last
+    # moving step on that Toronto date. Not the first and last fix, since a
+    # night stay carries fixes past midnight. Moving steps are joined into
+    # drives wherever the car stopped for less than a night, and only a
+    # drive of half an hour or more counts: a few minutes of "driving" at a
+    # campsite at night is the fix jumping. A day starts with the first
+    # drive that starts on it, so an evening in BC that runs past midnight
+    # Toronto time does not start the next day at 00:16. A day finishes at
+    # the last fix on its own date that one of those drives touched, so the
+    # times cover the same date as the day's km and two days never claim
+    # the same hours. A day with no drive of its own (the end of the drive
+    # home) falls back to its plain moving steps.
     drives = []
     for i, s in enumerate(steps):
         if not s["moving"]:
@@ -554,28 +566,28 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
     starts = [None] * len(days)
     ends = [None] * len(days)
     own = [False] * len(days)
+    in_drive = [False] * len(steps)
     for a, b in drives:
-        # A few minutes of "driving" at a campsite at night is the fix
-        # jumping, not a start.
         if (pts[b + 1]["t"] - pts[a]["t"]).total_seconds() < MIN_DRIVE_H * 3600:
             continue
+        for i in range(a, b + 1):
+            in_drive[i] = steps[i]["moving"]
         d = pts[a]["day"]
         if starts[d] is None:
             starts[d] = pts[a]["local"]
-        ends[d] = pts[b + 1]["local"]
         own[d] = True
     for i, s in enumerate(steps):
         d = pts[i]["day"]
-        if s["moving"] and not own[d]:
-            if starts[d] is None:
-                starts[d] = pts[i]["local"]
-            ends[d] = pts[i + 1]["local"]
+        if not (in_drive[i] if own[d] else s["moving"]):
+            continue
+        if starts[d] is None:
+            starts[d] = pts[i]["local"]
+        # A step across midnight counts towards this day's km but ends on
+        # the next date; its first fix is the last one this day has.
+        ends[d] = pts[i + 1]["local"] if pts[i + 1]["day"] == d else pts[i]["local"]
     for di, day in enumerate(days):
         day["start_local"] = hhmm(starts[di]) if starts[di] is not None else None
         day["end_local"] = hhmm(ends[di]) if ends[di] is not None else None
-        # So the page can say "02:20 next day" instead of a time that reads
-        # as earlier than the start.
-        day["end_next_day"] = ends[di] is not None and ends[di].date() != dates[di]
         # Provinces in the order the day passed through them. A day that
         # crosses a border and comes back lists the first one twice.
         codes = []
@@ -642,7 +654,7 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
     print("-" * len(head))
     for d in data["days"]:
         avg = "%.1f" % d["avg_kmh"] if d["avg_kmh"] is not None else "-"
-        span = "%s-%s%s" % (d["start_local"], d["end_local"], "+1" if d["end_next_day"] else "") if d["start_local"] else "-"
+        span = "%s-%s" % (d["start_local"], d["end_local"]) if d["start_local"] else "-"
         night = "%d" % d["night"] if d["night"] is not None else "-"
         print("%-11s %8.1f %9.2f %9s %9.1f %7d %7d %5d  %-13s %5s  %s" % (
             d["weekday"] + " " + d["label"], d["km"], d["moving_h"], avg, d["max_kmh"],

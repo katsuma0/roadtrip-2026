@@ -36,13 +36,18 @@
      keeps each pair of neighbouring provinces apart under protan and
      deutan vision (validate_palette.js, worst neighbours dE 16.3 here and
      9.9 in dark). The violet stays out: it is the accent. Yellow and pink
-     sit under 3:1 on the light panel, so every block also has its name
-     in text beside or under it. */
+     sit under 3:1 on the light panel, so colour is never the only way to
+     tell them: the list under the timeline names every province beside
+     its swatch, the note line names the visit pointed at or current, and
+     on the light panel those two blocks get a darker edge. */
   --prov-on: #e34948;
   --prov-mb: #2a78d6;
   --prov-sk: #eda100;
   --prov-ab: #e87ba4;
   --prov-bc: #008300;
+  /* The edge that keeps yellow and pink blocks at 3:1 against the light
+     panel; every fill clears that in dark, so there it is not drawn. */
+  --prov-edge: rgba(0, 0, 0, 0.28);
 
   /* Glass for the data surfaces, close to opaque so small numbers keep
      their contrast over a busy map. The pill only carries the title. */
@@ -105,6 +110,7 @@
     --prov-sk: #c98500;
     --prov-ab: #d55181;
     --prov-bc: #0ca30c;
+    --prov-edge: transparent;
 
     --glass: rgba(28, 29, 34, 0.86);
     --glass-pill: rgba(28, 29, 34, 0.72);
@@ -497,7 +503,12 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 }
 #records dl > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
 #records dt { margin: 0 18px 3px 0; }
-#records dd { margin: 0; }
+/* A label that wraps would push its value below the one beside it, so
+   the value and day sit at the foot of the card and a row shares a line. */
+.rec { display: flex; flex-direction: column; }
+#records dd { margin: auto 0 0; }
+/* The figure holds together and the unit may drop under it, so a narrow
+   card or wider text spacing grows the card instead of running out of it. */
 .rec .jump {
   display: block;
   font-size: 20px;
@@ -505,8 +516,8 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   line-height: 1.2;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
+.rec .num, .rec .unit { white-space: nowrap; }
 .rec .unit {
   margin-left: 0.14em;
   font-size: 0.65em;
@@ -521,9 +532,6 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   margin-top: 4px;
   font-size: 12px;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .rec .when .swatch { flex: none; width: 12px; height: 3px; border-radius: 2px; }
 .place.current { background: var(--accent-soft); }
@@ -551,7 +559,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   /* Above the sections that slide down from under it as it unrolls. */
   z-index: 1;
   margin: 16px var(--gut) 0;
-  padding: 10px 16px 6px;
+  padding: 12px 16px 8px;
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
@@ -616,11 +624,10 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 }
 #dc-title {
   margin: 2px 0 0;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 650;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  border-radius: 6px;
 }
 /* The heading takes the focus when a pick opens the card, so a keyboard
    or screen reader lands on the day; it is not a control, and the card
@@ -632,25 +639,24 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.dc-when .next { color: var(--text); font-weight: 600; }
 .dc-stats {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 24px;
   margin: 12px 0 0;
 }
-.dc-stats > div { min-width: 0; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.dc-stats > div { min-width: 0; padding: 12px 0; border-top: 1px solid var(--hairline); }
 .dc-stats dt { margin-bottom: 3px; }
 .dc-stats dd {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.dc-stats .unit { margin-left: 0.14em; font-size: 0.68em; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+.dc-stats .unit { margin-left: 0.14em; font-size: 0.65em; font-weight: 500; letter-spacing: 0; color: var(--muted); }
 .dc-stats dt, .dc-kicker, .dc-night .label {
   font-size: 11px;
   font-weight: 600;
@@ -665,7 +671,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   align-items: center;
   gap: 4px;
   margin: 0;
-  padding: 10px 0 12px;
+  padding: 12px 0;
   border-top: 1px solid var(--hairline);
   list-style: none;
 }
@@ -678,7 +684,6 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   padding: 0 10px 0 8px;
   border-radius: 999px;
   background: var(--row-hover);
-  box-shadow: inset 0 0 0 1px var(--hairline);
   font-size: 12px;
   font-weight: 550;
   white-space: nowrap;
@@ -687,7 +692,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 .chip .prov-key { width: 8px; height: 8px; border-radius: 2px; }
 .dc-provs .then { flex: none; width: 10px; height: 10px; fill: none; stroke: var(--faint); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .dc-night {
-  padding: 2px 0 4px;
+  padding: 4px 0;
   border-top: 1px solid var(--hairline);
 }
 /* The row is the button, with the same pill tint as a day row. */
@@ -698,7 +703,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   gap: 10px;
   width: calc(100% + 16px);
   min-height: 44px;
-  margin: 2px -8px 0;
+  margin: 0 -8px;
   padding: 0 8px;
   border: 0;
   border-radius: var(--r-sm);
@@ -892,7 +897,7 @@ tr.selected .day-row::before { opacity: 1; transform: none; }
 tr.selected .day-row .swatch { transform: scaleY(1.5); }
 /* The weekday is a second, quieter fact, so the dates hold a column of
    their own width and the weekdays line up beside them. */
-.day-row .day-label { min-width: 3.2em; }
+.day-row .day-label { min-width: 3.5em; }
 .day-row .wd { margin-left: -6px; color: var(--muted); font-weight: 400; }
 /* A thin meter under each day's distance: a neutral track the width of
    the column and the day's share of the longest day in its colour, so
@@ -992,6 +997,7 @@ tr.selected .kmbar { transform: scaleY(1.5); }
   background: var(--prov);
   transition: transform 0.2s var(--ease), opacity 0.15s var(--ease);
 }
+.pv[data-prov="SK"] .blk, .pv[data-prov="AB"] .blk { box-shadow: inset 0 0 0 1px var(--prov-edge); }
 .pv:first-child .blk { border-radius: 5px 2px 2px 5px; }
 .pv:last-child .blk { border-radius: 2px 5px 5px 2px; }
 .pv .lbl {
@@ -1016,20 +1022,40 @@ tr.selected .kmbar { transform: scaleY(1.5); }
 .pv:active .blk { opacity: 0.8; }
 .pv:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pv:focus-visible .lbl { color: var(--text); }
-/* Names the visit under the pointer or the focus, or else the one the
-   marker is in, so the narrow blocks have their words too. */
-.timeline-note {
+/* A finger needs more than a block an hour wide: on touch each visit is
+   at least 24px wide and 40px tall, which also gives every block room for
+   its code. The visit buttons beside the note are the 40px way there. */
+@media (pointer: coarse) {
+  .pv { min-width: 24px; height: 40px; }
+}
+.timeline-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 18px;
   margin: 0 0 12px;
+}
+/* Pulled out like the card's buttons, so the chevrons line up with the
+   end of the timeline rather than the edge of their hit area. */
+.timeline-foot .dc-nav { flex: none; margin-right: -10px; }
+@media (pointer: fine) {
+  .timeline-foot .dc-nav { margin-right: -6px; }
+}
+/* Names the visit under the pointer or the focus, or else the one the
+   marker is in, so the narrow blocks have their words too. It wraps
+   rather than cuts off, since the dates are what it is for. */
+.timeline-note {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  min-height: 18px;
+  margin: 0;
   font-size: 12px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .timeline-note b { color: var(--text); font-weight: 600; }
 #provinces dd {
@@ -1731,7 +1757,17 @@ body.sheet-open #dock::after { opacity: 1; }
   <section id="provinces" aria-labelledby="provinces-head">
     <h2 id="provinces-head" class="section-head">Time in each province</h2>
     <div id="prov-timeline" class="timeline" role="group" aria-label="Visits in order"></div>
-    <p id="prov-note" class="timeline-note" aria-hidden="true"></p>
+    <div class="timeline-foot">
+      <p id="prov-note" class="timeline-note" aria-hidden="true"></p>
+      <div class="dc-nav">
+        <button id="pv-prev" class="icon-btn" type="button" aria-label="Previous visit">
+          <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path d="M8.6 3.2 4.9 7l3.7 3.8"></path></svg>
+        </button>
+        <button id="pv-next" class="icon-btn" type="button" aria-label="Next visit">
+          <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path d="M5.4 3.2 9.1 7l-3.7 3.8"></path></svg>
+        </button>
+      </div>
+    </div>
     <dl id="province-list"></dl>
   </section>
 </aside>
@@ -2232,15 +2268,16 @@ body.sheet-open #dock::after { opacity: 1; }
     provinceList.appendChild(item);
   });
 
-  // "Sep 9 to Sep 10", or one date when it all happened on one day.
+  // One date for a visit that began and ended on the same day, since
+  // "Sep 9 to Sep 9" reads as a mistake.
   function dayLabelAt(i) { return TRIP.days[TRIP.points[i][5]].label; }
   function spanText(a, b) {
     const from = dayLabelAt(a);
     const to = dayLabelAt(b);
     return from === to ? from : from + ' to ' + to;
   }
-  // The visits under the province heading, each a button that puts the
-  // marker where the visit began.
+  // A visit jumps to where it began, not its middle, so a scrub or play
+  // from there follows it in the order it was driven.
   const visits = TRIP.province_visits || [];
   const timeline = document.getElementById('prov-timeline');
   const timelineNote = document.getElementById('prov-note');
@@ -2250,7 +2287,10 @@ body.sheet-open #dock::after { opacity: 1; }
     b.style.flexGrow = String(v.hours);
     b.style.setProperty('--prov', provColour(v.code));
     v.text = spanText(v.from_idx, v.to_idx) + ', ' + fmtDuration(v.hours);
-    b.setAttribute('aria-label', v.name + ', ' + v.text + ', show on map');
+    b.setAttribute('data-prov', v.code);
+    // The code first, as it is the text on the block, so "click BC" by
+    // voice finds it.
+    b.setAttribute('aria-label', v.code + ', ' + v.name + ', ' + v.text + ', show on map');
     const blk = el('span', 'blk');
     blk.setAttribute('aria-hidden', 'true');
     b.appendChild(blk);
@@ -2267,8 +2307,9 @@ body.sheet-open #dock::after { opacity: 1; }
     timeline.appendChild(b);
     return b;
   });
-  // The note names the visit being pointed at, or with nothing pointed at,
-  // the one the marker is in.
+  // With nothing pointed at, the note falls back to the visit the marker
+  // is in, so the blocks too narrow for a code still get named in words
+  // as the marker passes them.
   let visitNow = -1;
   let visitPointed = -1;
   function noteVisit(k, pointed) {
@@ -2285,12 +2326,36 @@ body.sheet-open #dock::after { opacity: 1; }
     for (let k = 0; k < visits.length; k++) if (i <= visits[k].to_idx) return k;
     return visits.length - 1;
   }
+  // The previous and next visit buttons are the full size way to reach a
+  // visit on touch, where the narrow blocks are a few pixels wide.
+  const visitPrev = document.getElementById('pv-prev');
+  const visitNext = document.getElementById('pv-next');
+  function visitStepLabel(btn, word, k) {
+    const ok = k >= 0 && k < visits.length;
+    btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
+    btn.setAttribute('aria-label', ok ? word + ', ' + visits[k].name + ', ' + visits[k].text + ', show on map' : word);
+  }
+  function stepVisit(dir) {
+    const k = visitNow + dir;
+    if (k >= 0 && k < visits.length) setIndex(visits[k].from_idx, 'jump');
+  }
+  visitPrev.addEventListener('click', function () { stepVisit(-1); });
+  visitNext.addEventListener('click', function () { stepVisit(1); });
   function markVisit(i) {
     const k = visitAt(i);
     if (k === visitNow) return;
-    if (visitNow >= 0) visitBtns[visitNow].classList.remove('current');
+    if (visitNow >= 0) {
+      visitBtns[visitNow].classList.remove('current');
+      visitBtns[visitNow].removeAttribute('aria-current');
+    }
     visitNow = k;
-    if (k >= 0) visitBtns[k].classList.add('current');
+    if (k >= 0) {
+      visitBtns[k].classList.add('current');
+      // Read on focus only, so playback passing a border says nothing.
+      visitBtns[k].setAttribute('aria-current', 'true');
+    }
+    visitStepLabel(visitPrev, 'Previous visit', k - 1);
+    visitStepLabel(visitNext, 'Next visit', k + 1);
     if (visitPointed < 0) noteVisit(-1, false);
   }
 
@@ -2305,8 +2370,8 @@ body.sheet-open #dock::after { opacity: 1; }
     const dd = el('dd');
     const jump = el('button', 'jump');
     jump.type = 'button';
-    // The first space splits the figure from what it counts, so "02:20
-    // next day" keeps "next day" small beside the time.
+    // The first space splits the figure from what it counts, so "3
+    // nights" keeps "nights" small beside the number.
     const sp = rec.value_text.indexOf(' ');
     jump.appendChild(el('span', 'num', sp < 0 ? rec.value_text : rec.value_text.slice(0, sp)));
     if (sp >= 0) jump.appendChild(el('span', 'unit', rec.value_text.slice(sp)));
@@ -2315,9 +2380,11 @@ body.sheet-open #dock::after { opacity: 1; }
     if (spot) when = spot.nights > 1 ? spot.from_label + ' to ' + spot.to_label : 'Night of ' + spot.from_label;
     else if (rec.day !== null) when = weekdayLabel(rec.day);
     jump.setAttribute('aria-label', rec.label + ' ' + rec.value_text + ', ' + when + (rec.idx === null ? ', show this day' : ', show on map'));
+    // The longest stay opens the day it began on and puts the marker on
+    // the spot, so the card, the chart and the map show the same place.
     jump.addEventListener('click', function () {
-      if (rec.idx !== null) setIndex(rec.idx, 'jump');
-      else if (rec.day !== null) selectDay(rec.day, 'record', jump);
+      if (rec.day !== null) selectDay(rec.day, 'record', jump, rec.idx === null ? undefined : rec.idx);
+      else if (rec.idx !== null) setIndex(rec.idx, 'jump');
     });
     dd.appendChild(jump);
     const line = el('span', 'when');
@@ -2332,7 +2399,7 @@ body.sheet-open #dock::after { opacity: 1; }
     wrap.appendChild(dd);
     wrap.appendChild(goIcon());
     recordList.appendChild(wrap);
-    if (rec.idx === null && rec.day !== null) recordCards.push({ node: wrap, day: rec.day });
+    if (rec.day !== null) recordCards.push({ node: wrap, button: jump, day: rec.day });
   });
 
   // Day table. The row button carries the accessible name and pressed
@@ -2434,13 +2501,15 @@ body.sheet-open #dock::after { opacity: 1; }
 
   // how says where the pick came from: 'row' (a toggle, the list's own
   // clear control, the same as Escape), 'record', 'step' (the card's
-  // previous and next), or 'close' and 'escape'. from is the control to
-  // give the focus back to when the card closes.
-  function selectDay(d, how, from) {
+  // previous and next), 'close' and 'escape', or 'leave' (the marker was
+  // sent to another day). from is the control to give the focus back to
+  // when the card closes. at is a fix of the day to put the marker on.
+  function selectDay(d, how, from, at) {
     if (d === selectedDay && (how === 'row' || how === undefined)) d = null;
     // A record for the day already picked only brings the card back.
     if (d === selectedDay) {
       if (d !== null) showCard(d, how, from, d);
+      if (d !== null && at !== undefined) setIndex(at, 'night');
       return;
     }
     // A day picked while playing should stay on screen, but the pan that
@@ -2451,7 +2520,10 @@ body.sheet-open #dock::after { opacity: 1; }
     if (d !== null && playing) stopPlay();
     const before = selectedDay;
     selectedDay = d;
+    // Playback running on past the picked day lets it go; the days driven
+    // so far go back above the ones ahead, as they are while playing.
     if (selectedDay !== null) raiseDays(selectedDay, selectedDay);
+    else if (playing) raiseDays(0, shownDay);
     styleDays();
     rows.forEach(function (row, i) {
       row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
@@ -2459,10 +2531,24 @@ body.sheet-open #dock::after { opacity: 1; }
       // selected along with the label.
       trs[i].classList.toggle('selected', i === selectedDay);
     });
-    recordCards.forEach(function (r) { r.node.classList.toggle('current', r.day === selectedDay); });
-    if (selectedDay === null) hideCard(); else showCard(selectedDay, how, from, before);
+    recordCards.forEach(function (r) {
+      r.node.classList.toggle('current', r.day === selectedDay);
+      if (r.day === selectedDay) r.button.setAttribute('aria-current', 'true');
+      else r.button.removeAttribute('aria-current');
+    });
+    if (selectedDay === null) hideCard(how); else showCard(selectedDay, how, from, before);
+    // The readout, slider and chart cursor go to the picked day too, or
+    // the readout above the zoomed chart would name a place it cannot
+    // show. A marker already on the day stays where it was put.
+    if (selectedDay !== null) {
+      if (at === undefined && (current < dayLo[d] || current > dayHi[d])) at = dayLo[d];
+      if (at !== undefined) setIndex(at, 'select');
+    }
     zoomChart(selectedDay === null ? fullDom() : dayDom(selectedDay));
-    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
+    // A pick let go because the marker went elsewhere keeps the view: the
+    // marker's own pan takes it there, and a fit out to the whole trip
+    // first would zoom out and then pan.
+    if (how !== 'leave') fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
   }
 
   // Puts days first to last above the rest, in that order. The markers
@@ -2581,7 +2667,7 @@ body.sheet-open #dock::after { opacity: 1; }
   const CARD_MS = 320;
   let cardDay = null;
   let cardFrom = null;
-  // Where the list was when the card took the panel up to itself.
+  // Kept so closing the card can put the list back where the reader was.
   let restoreTop = 0;
   let cardOut = null;
   let cardWait = null;
@@ -2631,12 +2717,8 @@ body.sheet-open #dock::after { opacity: 1; }
     return statsBox.clientHeight > 0 && !card.hidden && statsBox.scrollTop < card.offsetTop + card.offsetHeight - 24;
   }
 
-  function goSvg() {
-    const svg = svgEl('svg', { class: 'go', viewBox: '0 0 14 14', 'aria-hidden': 'true', focusable: 'false' });
-    svg.appendChild(svgEl('path', { d: 'M4.2 9.8 9.6 4.4M5.4 4.2h4.4v4.4' }));
-    return svg;
-  }
-  // Spot numbers count the places slept at, in order, as the map shows them.
+  // The spot is named the way its dot's tooltip names it, so the two can
+  // be matched up on the map.
   function nightRow(d) {
     const k = TRIP.days[d].night;
     while (cardNight.firstChild) cardNight.removeChild(cardNight.firstChild);
@@ -2650,9 +2732,10 @@ body.sheet-open #dock::after { opacity: 1; }
       // ended at home.
       value.textContent = 'Home';
     } else if (spot.off) {
-      value.textContent = 'Not known, the device was off';
+      value.textContent = 'Not known, device off';
     } else {
-      value.textContent = 'Spot ' + (k + 1) + ' of ' + TRIP.nights.length;
+      const where = spot.nights > 1 ? spot.from_label + ' to ' + spot.to_label : 'Night of ' + spot.from_label;
+      value.textContent = where;
       let nth = '';
       if (spot.nights > 1) {
         let first = d;
@@ -2661,8 +2744,8 @@ body.sheet-open #dock::after { opacity: 1; }
         value.appendChild(el('span', 'more', nth));
       }
       row.type = 'button';
-      row.setAttribute('aria-label', 'Slept at spot ' + (k + 1) + ' of ' + TRIP.nights.length + (nth ? ', ' + nth : '') + ', show on map');
-      row.appendChild(goSvg());
+      row.setAttribute('aria-label', 'Slept at, ' + where + (nth ? ', ' + nth : '') + ', show on map');
+      row.appendChild(goIcon());
       row.addEventListener('click', function () { setIndex(nightFix[d], 'night'); });
     }
     cardNight.appendChild(row);
@@ -2674,8 +2757,7 @@ body.sheet-open #dock::after { opacity: 1; }
     cardTitle.textContent = weekdayLabel(d);
     while (cardWhen.firstChild) cardWhen.removeChild(cardWhen.firstChild);
     if (day.start_local) {
-      cardWhen.appendChild(document.createTextNode(day.start_local + ' to ' + day.end_local));
-      if (day.end_next_day) cardWhen.appendChild(el('span', 'next', ' next day'));
+      cardWhen.textContent = day.start_local + ' to ' + day.end_local;
     } else {
       cardWhen.textContent = 'No driving';
     }
@@ -2770,10 +2852,12 @@ body.sheet-open #dock::after { opacity: 1; }
     }
   }
 
-  function hideCard() {
+  function hideCard(how) {
     if (cardDay === null) return;
     cardDay = null;
-    const restore = restoreTop > 0 && statsBox.scrollTop < 8 ? restoreTop : null;
+    // Going back to the list is for a close; a card let go because the
+    // marker went elsewhere leaves the panel where the reader has it.
+    const restore = how !== 'leave' && restoreTop > 0 && statsBox.scrollTop < 8 ? restoreTop : null;
     restoreTop = 0;
     const back = cardFrom;
     cardFrom = null;
@@ -2784,7 +2868,12 @@ body.sheet-open #dock::after { opacity: 1; }
       else document.activeElement.blur();
     }
     card.inert = true;
-    const height = totalsEl.offsetTop - card.offsetTop;
+    // How far everything under the card moves up when it leaves the
+    // layout: its whole margin box, to the sub pixel, or the end of a
+    // close would snap by the margin. Its own box, since what is under it
+    // may still be sliding.
+    const cs = getComputedStyle(card);
+    const height = card.getBoundingClientRect().height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
     function gone() {
       cardOut = null;
       cardWait = null;
@@ -2851,7 +2940,8 @@ body.sheet-open #dock::after { opacity: 1; }
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && selectedDay !== null) selectDay(null, 'escape');
   });
-  // The sheet opening with a day picked shows that day's card.
+  // A day picked on the map or chart while the list was scrolled down is
+  // what the reader is after, so the opening sheet goes to its card.
   function revealCard() {
     if (cardDay !== null && statsBox.clientHeight > 0 && !cardInView()) scrollStats(0, true);
   }
@@ -3195,6 +3285,15 @@ body.sheet-open #dock::after { opacity: 1; }
   function setIndex(i, source, frac) {
     i = Math.max(0, Math.min(LAST, Math.round(Number(i) || 0)));
     frac = i < LAST && frac > 0 ? Math.min(frac, 1) : 0;
+    // A jump or playback that takes the marker off the picked day lets the
+    // pick go, so the card, the faded map and the zoomed chart never stay
+    // on a day the marker has left. The slider and the chart's own scrub
+    // are left alone: the scrub stays on the day, and the slider is the
+    // way to look along the whole trip with the day still picked.
+    if ((JUMPS[source] || source === 'play') && selectedDay !== null &&
+        (i < dayLo[selectedDay] || i > dayHi[selectedDay])) {
+      selectDay(null, 'leave');
+    }
     current = i;
     currentFrac = frac;
     const p = points[i];
@@ -3235,8 +3334,10 @@ body.sheet-open #dock::after { opacity: 1; }
     // On load the map was just fitted to the whole track; a pan here would
     // nudge that fit by the difference between the two paddings. The pan
     // is not animated: playback asks every frame, and an animated pan
-    // restarted every frame never catches the marker.
-    if (source !== 'init') map.panInside(at, panPadding());
+    // restarted every frame never catches the marker. A pick puts the
+    // marker on its day while the map flies to fit that day, and a pan
+    // would cut the fly short.
+    if (source !== 'init' && source !== 'select') map.panInside(at, panPadding());
     if (source !== 'init' && source !== 'play') haloSoon();
   }
 
@@ -3478,7 +3579,9 @@ body.sheet-open #dock::after { opacity: 1; }
     dayHi.push(hi);
     nightFix.push(fix);
   });
-  // The chart's x domain, as a start and a width in km.
+  // The x domain is a start and a width rather than two ends, since the
+  // zoom eases the width evenly in scale (lerpDom) and the transform that
+  // shows it is one scale and one offset.
   function fullDom() { return { a: 0, w: totals.km }; }
   function isFull(dom) { return dom.a < 0.001 && Math.abs(dom.w - totals.km) < 0.001; }
   // A day with a little of the days either side, so it does not touch the
@@ -3501,8 +3604,8 @@ body.sheet-open #dock::after { opacity: 1; }
     return Math.max(dayLo[selectedDay], Math.min(dayHi[selectedDay], i));
   }
 
-  // The transform that puts km a on the plot's left edge and a + w on
-  // its right.
+  // One transform on the group of lines for the whole range, so a zoom
+  // frame never rebuilds the paths.
   function zoomTransform(dom) {
     const sx = scale.plotW / dom.w;
     return 'translate(' + (scale.left - sx * dom.a).toFixed(3) + 'px, 0px) scale(' + sx.toFixed(6) + ', 1)';
@@ -3511,15 +3614,20 @@ body.sheet-open #dock::after { opacity: 1; }
 
   // Ticks on round steps for the range shown. The whole trip keeps its
   // 2,000 km steps (4,000 on a narrow dock); a day takes the smallest of
-  // 1, 2 or 5 times a power of ten that leaves room for its labels.
+  // 1, 2 or 5 times a power of ten that leaves room for its labels. The
+  // group goes into the chart before its labels are measured: text that is
+  // not in the document measures 0 wide. It is added before next.
   const NF_KM = new Intl.NumberFormat('en-CA', { maximumFractionDigits: 1 });
-  function drawTicks(dom) {
+  function drawTicks(dom, parent, next) {
     const full = isFull(dom);
     let step;
     if (full) {
       step = xStepKm(scale.plotW);
     } else {
-      const room = scale.plotW < 380 ? 72 : 96;
+      // One spacing at every width, about the whole trip's at its
+      // narrowest, so the axis keeps its density when a day is picked;
+      // the widest label, "12,450 km", still has clear space either side.
+      const room = 64;
       const raw = dom.w * room / scale.plotW;
       const mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
       step = [1, 2, 5, 10].map(function (m) { return m * mag; }).filter(function (s) { return s >= raw; })[0];
@@ -3529,6 +3637,7 @@ body.sheet-open #dock::after { opacity: 1; }
       kms.push(Math.round(km * 10) / 10);
     }
     const g = svgEl('g', { class: 'grid xticks' });
+    parent.insertBefore(g, next || null);
     kms.forEach(function (km, k) {
       const gx = Math.round(xAt(km, dom)) + 0.5;
       const t = svgEl('g', {});
@@ -3542,9 +3651,15 @@ body.sheet-open #dock::after { opacity: 1; }
       const label = svgEl('text', { x: 0, y: scale.H - 5, 'text-anchor': 'middle' });
       label.textContent = NF_KM.format(km) + (k === kms.length - 1 ? ' km' : '');
       t.appendChild(label);
+      // A zoomed day's first step can land on the plot's left edge, where
+      // its label would run into the elevation labels; it keeps its tick.
+      const half = label.getComputedTextLength() / 2;
+      if (gx - half < scale.left - 2) {
+        t.removeChild(label);
+        return;
+      }
       // The last label carries the unit and sits near the right edge, so
       // it is pulled in to end at the edge rather than run past it.
-      const half = label.getComputedTextLength() / 2;
       if (gx + half > scale.W) {
         label.setAttribute('x', String(scale.W - gx));
         label.setAttribute('text-anchor', 'end');
@@ -3591,12 +3706,17 @@ body.sheet-open #dock::after { opacity: 1; }
     const from = scale && zoomG ? shownDom() : xDom;
     xDom = to;
     if (!scale || !zoomG) return;
+    // Ticks still fading in from a zoom cut short fade out from where they
+    // got to, not from full strength, or stepping days quickly would flash
+    // every half faded label before it goes.
+    const shown = zoomAnims.length && tickG
+      ? Array.prototype.map.call(tickG.children, function (t) { return Number(getComputedStyle(t).opacity); })
+      : null;
     stopZoom();
     // The new state goes on first, so it holds when the keyframes end.
     zoomG.style.transform = zoomTransform(to);
     const old = tickG;
-    tickG = drawTicks(to);
-    old.parentNode.insertBefore(tickG, old.nextSibling);
+    tickG = drawTicks(to, old.parentNode, old.nextSibling);
     moveCursor(current);
     const same = Math.abs(from.a - to.a) < 0.01 && Math.abs(from.w - to.w) < 0.01;
     if (!canAnimate || same) {
@@ -3618,8 +3738,9 @@ body.sheet-open #dock::after { opacity: 1; }
     // The old ticks hold their faded end until they are taken out, so the
     // frame between the end of the zoom and their removal never shows them.
     leavingTicks.push(old);
-    Array.prototype.forEach.call(old.children, function (t) {
-      ride(t, Number(t.getAttribute('data-km')), function (p) { return Math.max(0, 1 - p * 2.5); }, 'forwards');
+    Array.prototype.forEach.call(old.children, function (t, k) {
+      const o = shown && shown[k] < 1 ? shown[k] : 1;
+      ride(t, Number(t.getAttribute('data-km')), function (p) { return o * Math.max(0, 1 - p * 2.5); }, 'forwards');
     });
     Array.prototype.forEach.call(tickG.children, function (t) {
       ride(t, Number(t.getAttribute('data-km')), function (p) { return Math.max(0, Math.min(1, (p - 0.4) / 0.6)); }, 'none');
@@ -3692,8 +3813,7 @@ body.sheet-open #dock::after { opacity: 1; }
       grid.appendChild(label);
     });
     chart.appendChild(grid);
-    tickG = drawTicks(xDom);
-    chart.appendChild(tickG);
+    tickG = drawTicks(xDom, chart, null);
 
     // The area under the line is a flat wash of the day's colour so the
     // profile has some body. A plain fill, not a gradient mask: a mask is
