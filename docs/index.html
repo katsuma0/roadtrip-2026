@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>British Columbia road trip</title>
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1c1c1e">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e6e5e2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141518">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
@@ -13,46 +13,97 @@
   /* The scrollbar and any native control follow color-scheme, not the
      tokens below, so without this they stay light on the dark panel. */
   color-scheme: light dark;
-  --bg: #ffffff;
-  --panel: #ffffff;
-  --panel-glass: rgba(255, 255, 255, 0.88);
-  --text: #1b1b1b;
-  --muted: #5e5e5e;
-  --border: #d8d8d8;
-  --row-hover: #f1f1f1;
-  --selected-bg: #e6eef9;
-  --link: #1b5fa8;
-  --grip: #c2c2c2;
-  --map-bg: #e9e7e2;
-  --marker-stroke: #222222;
-  --control-shadow: rgba(0, 0, 0, 0.25);
+
+  /* One accent for every control. Violet because the day colours run from
+     blue through green and yellow to red and never reach this hue, so a
+     control can never be mistaken for a day. */
+  --accent: #6445df;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(100, 69, 223, 0.12);
+  --accent-glow: rgba(100, 69, 223, 0.32);
+
+  --text: #17171c;
+  --muted: #5b5b66;
+  --faint: #8a8a94;
+  --hairline: rgba(20, 20, 40, 0.09);
+  --track: rgba(20, 20, 40, 0.12);
+  --tile: rgba(255, 255, 255, 0.55);
+  --tile-hover: rgba(255, 255, 255, 0.85);
+  --row-hover: rgba(20, 20, 40, 0.05);
+
+  /* Glass. The solid value is what browsers without backdrop-filter get,
+     so text never sits on a see-through panel over a busy map. */
+  --glass: rgba(250, 250, 252, 0.68);
+  --glass-strong: rgba(250, 250, 252, 0.84);
+  --glass-solid: #f7f7f9;
+  --glass-edge: rgba(255, 255, 255, 0.7);
+  --glass-line: rgba(20, 20, 40, 0.08);
+  --blur: blur(22px) saturate(170%);
+  --surface: #ffffff;
+  --shadow-float:
+    0 1px 2px rgba(16, 18, 40, 0.06),
+    0 8px 24px rgba(16, 18, 40, 0.10),
+    0 24px 56px rgba(16, 18, 40, 0.12);
+  --shadow-chip: 0 1px 2px rgba(16, 18, 40, 0.10), 0 4px 12px rgba(16, 18, 40, 0.10);
+
+  --map-bg: #e3e2df;
+  --casing: #ffffff;
+  /* Real OSM tiles at trip zoom are calm, but zoomed into a day they turn
+     into roads, labels and parks. Pulling the saturation and contrast down
+     makes both read as a quiet base, so the day colours carry the colour. */
+  --tiles: saturate(0.32) contrast(0.9) brightness(0.98);
+
+  --r-sheet: 28px;
+  --r-card: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
+  --inset: 10px;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1c1c1e;
-    --panel: #1c1c1e;
-    --panel-glass: rgba(28, 28, 30, 0.88);
-    --text: #ececec;
-    --muted: #a3a3a3;
-    --border: #3a3a3c;
-    --row-hover: #27272a;
-    --selected-bg: #2b3a52;
-    --link: #8ab8ff;
-    --grip: #5a5a5e;
-    --map-bg: #1b1d20;
-    --marker-stroke: #222222;
-    --control-shadow: rgba(0, 0, 0, 0.6);
-  }
-  /* Inverting the OSM raster gives a dark map without a second tile
-     source; the hue rotation puts water back on the blue side. */
-  .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+    --accent: #a79bfe;
+    --accent-ink: #17122f;
+    --accent-soft: rgba(167, 155, 254, 0.16);
+    --accent-glow: rgba(167, 155, 254, 0.28);
+
+    --text: #f1f1f4;
+    --muted: #a6a6b2;
+    --faint: #7b7b86;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --track: rgba(255, 255, 255, 0.16);
+    --tile: rgba(255, 255, 255, 0.05);
+    --tile-hover: rgba(255, 255, 255, 0.10);
+    --row-hover: rgba(255, 255, 255, 0.06);
+
+    --glass: rgba(28, 29, 34, 0.66);
+    --glass-strong: rgba(28, 29, 34, 0.86);
+    --glass-solid: #1f2025;
+    --glass-edge: rgba(255, 255, 255, 0.09);
+    --glass-line: rgba(0, 0, 0, 0.5);
+    --surface: #24252b;
+    --shadow-float:
+      0 1px 2px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.35),
+      0 24px 56px rgba(0, 0, 0, 0.45);
+    --shadow-chip: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.35);
+
+    --map-bg: #141518;
+    --casing: #111216;
+    /* Inverting the OSM raster gives a dark map without a second tile
+       source; the hue rotation puts water back on the blue side. */
+    --tiles: invert(1) hue-rotate(180deg) saturate(0.22) brightness(0.72) contrast(0.86);
   }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 html { height: 100%; }
+
+/* The map fills the whole viewport and everything else floats over it on
+   one grid. Phone: a single bottom sheet holds the handle, the dock and
+   the stats. The side and bottom tracks keep the sheet off the rounded
+   screen corners and the home indicator. */
 body {
   /* dvh tracks the mobile browser chrome; vh stays as the fallback for
      browsers that predate it. */
@@ -60,82 +111,150 @@ body {
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 1fr auto auto auto;
-  grid-template-areas: "map" "handle" "dock" "stats";
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  background: var(--panel);
+  grid-template-columns: max(8px, env(safe-area-inset-left, 0px)) minmax(0, 1fr) max(8px, env(safe-area-inset-right, 0px));
+  grid-template-rows: minmax(0, 1fr) auto auto auto max(8px, env(safe-area-inset-bottom, 0px));
+  background: var(--map-bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   position: relative;
 }
 
+/* Glass recipe, shared by the sheet, the card, the dock, the title pill and
+   the map controls. */
+.glass, body::before, .leaflet-bar, .leaflet-container .leaflet-control-attribution {
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-float), inset 0 0 0 1px var(--glass-edge);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass, body::before, .leaflet-bar, .leaflet-container .leaflet-control-attribution {
+    background: var(--glass);
+    -webkit-backdrop-filter: var(--blur);
+    backdrop-filter: var(--blur);
+  }
+}
+
 #map {
-  grid-area: map;
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
   min-height: 0;
-  /* A stacking context of its own keeps Leaflet's pane z-indexes from
-     fighting with the title and the sheet handle. */
+  /* A stacking context of its own keeps Leaflet's pane z-indexes below the
+     floating panels. */
   position: relative;
   z-index: 0;
   background: var(--map-bg);
 }
-/* Only shown when Leaflet never arrives from the CDN. Centred in the map
-   box so the floating title on a phone does not cover it. */
+.leaflet-tile-pane { filter: var(--tiles); }
+/* Only shown when Leaflet never arrives from the CDN. Centred in the part
+   of the map the panels leave open. */
 .map-missing {
   position: absolute;
-  top: 50%;
-  left: 16px;
-  right: 16px;
+  top: 40%;
+  left: 24px;
+  right: 24px;
   transform: translateY(-50%);
   margin: 0;
   color: var(--muted);
   text-align: center;
 }
 
+/* The sheet surface is a pseudo element on the grid, spanning the handle,
+   dock and stats rows, so the three keep their own elements and order and
+   still read as one pane of glass. */
+body::before {
+  content: "";
+  grid-column: 2;
+  grid-row: 2 / 5;
+  z-index: 1;
+  border-radius: var(--r-sheet);
+  pointer-events: none;
+}
+
 #title {
   position: absolute;
   /* viewport-fit=cover draws under the notch, so the offset grows by the
-     inset on phones that report one and stays 10px everywhere else. */
-  top: calc(10px + env(safe-area-inset-top, 0px));
-  left: calc(10px + env(safe-area-inset-left, 0px));
-  max-width: 75%;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: var(--panel-glass);
-  z-index: 1;
+     inset on phones that report one. */
+  top: calc(var(--inset) + env(safe-area-inset-top, 0px));
+  left: calc(var(--inset) + env(safe-area-inset-left, 0px));
+  max-width: calc(100% - 2 * var(--inset) - 56px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 16px 6px 8px;
+  border-radius: 999px;
   pointer-events: none;
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease), visibility 0s;
 }
 #title h1 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
+.mark {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.mark path { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mark circle { fill: currentColor; }
 
 #handle {
-  grid-area: handle;
+  grid-column: 2;
+  grid-row: 2;
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
-  height: 36px;
-  /* Overlapping the map by the corner radius makes the sheet look like
-     it sits on top of the map instead of below it. */
-  margin-top: -12px;
-  padding: 0 12px;
+  height: 44px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 12px 12px 0 0;
-  background: var(--panel);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
 }
+#handle .grip {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 36px;
+  height: 5px;
+  margin-left: -18px;
+  border-radius: 3px;
+  background: var(--track);
+}
+#handle .handle-text { padding-top: 8px; }
+#handle .chev {
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.4s var(--ease);
+}
+body.sheet-open #handle .chev { transform: rotate(180deg); }
+#handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
 /* Text screen readers need but sighted users do not (the handle name,
    the slider label, the table caption). Clipped to a pixel rather than
    display none so it stays in the accessibility tree. */
@@ -147,20 +266,11 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-#handle .grip {
-  display: block;
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--grip);
-}
-#handle:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-/* The handle overlaps the bottom of the map, so the attribution moves up
-   by the same amount to stay readable. */
-.leaflet-container .leaflet-bottom .leaflet-control-attribution { margin-bottom: 12px; }
 
 #stats {
-  grid-area: stats;
+  grid-column: 2;
+  grid-row: 4;
+  z-index: 2;
   /* The clipped table caption is absolute; without this its containing
      block is body and it pokes out below the closed sheet, making the
      whole page scrollable. */
@@ -171,67 +281,107 @@ body {
      collapsed; visibility takes them out of the tab order too. The delay
      lets the height animation finish before the rows disappear. */
   visibility: hidden;
-  background: var(--panel);
-  transition: height 0.2s ease, visibility 0s linear 0.2s;
+  border-radius: 0 0 var(--r-sheet) var(--r-sheet);
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--track) transparent;
+  transition: height 0.45s var(--ease), visibility 0s linear 0.45s;
 }
 body.sheet-open #stats {
-  /* The handle row (24px) and the dock (132px) are fixed, so a 55vh sheet
-     on a landscape phone would leave the map 0 to 13px tall. The cap keeps
-     at least 150px of map; vh is the fallback for browsers without dvh. */
-  height: min(55vh, calc(100vh - 306px));
-  height: min(55vh, calc(100dvh - 306px));
+  /* The handle and dock rows are fixed at about 210px with the bottom
+     gap, so on a short phone a 50vh sheet would bury the map. The cap
+     keeps about 150px of map; vh is the fallback for browsers without dvh. */
+  height: min(50vh, calc(100vh - 360px));
+  height: min(50dvh, calc(100dvh - 360px));
   overflow: auto;
   visibility: visible;
-  transition: height 0.2s ease, visibility 0s;
+  transition: height 0.45s var(--ease), visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
-/* Totals. Two columns so the eight numbers fit above the fold of the
-   phone sheet. The distance spans both because it is the one number
+
+/* Totals. Two columns of tiles so the eight numbers fit above the fold of
+   the phone sheet. The distance spans both because it is the one number
    people ask about, and the last tile spans both too so the odd seven
    under it do not leave a hole in the grid. */
-#totals {
-  padding: 10px 14px 12px;
-  border-bottom: 1px solid var(--border);
-}
+#totals { padding: 4px 12px 16px; }
 #totals dl {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
+  gap: 8px;
   margin: 0;
 }
+#totals dl > div {
+  position: relative;
+  min-width: 0;
+  padding: 10px 12px 11px;
+  border-radius: var(--r-md);
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  transition: background-color 0.2s ease, transform 0.2s var(--ease);
+}
 #totals .hero, #totals dl > div:last-child { grid-column: 1 / -1; }
+#totals .hero {
+  padding: 14px 16px 15px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 70%),
+    var(--tile);
+}
 #totals dt {
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #totals dd {
-  margin: 0;
+  margin: 2px 0 0;
   font-size: 20px;
   font-weight: 600;
   line-height: 1.2;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
-#totals .hero dd { font-size: 26px; }
-/* The jump buttons look like the other values apart from the dotted line,
-   which is the usual sign for "tap this" without adding an icon. */
+#totals .hero dd { font-size: 34px; letter-spacing: -0.025em; line-height: 1.1; }
+#totals .unit { font-size: 0.6em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+#totals .hero .unit { font-size: 0.5em; }
+
+/* Highest, lowest and farthest are places. The whole tile is the button
+   target, through a pseudo element stretched over it, and a small target
+   ring in the corner says it goes somewhere on the map. */
 .jump {
   padding: 0;
   border: 0;
-  border-radius: 2px;
   background: none;
   color: inherit;
   font: inherit;
-  font-variant-numeric: inherit;
-  text-decoration: underline dotted;
-  text-decoration-color: var(--muted);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
+  letter-spacing: inherit;
   cursor: pointer;
+  text-align: left;
 }
-.jump:hover { text-decoration-color: var(--link); color: var(--link); }
-.jump:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.jump::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-md);
+}
+#totals .place::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 1.6px, transparent 2.2px);
+}
+.jump:focus-visible { outline: none; }
+.jump:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 2px; }
+#totals .place:active { transform: scale(0.98); }
+@media (hover: hover) {
+  #totals .place:hover { background: var(--tile-hover); }
+}
 
 /* Day table. Separate borders, not collapsed ones, because a collapsed
    border on a sticky header scrolls away with the rows in Chrome. */
@@ -246,12 +396,14 @@ body.sheet-open #stats {
   position: sticky;
   top: 0;
   z-index: 1;
-  height: 36px;
-  /* 4px, not more: at 320px wide the five headers plus a caret only just
+  height: 40px;
+  /* 4px, not more: at 320px wide the four headers plus a caret only just
      fit, and the gutters on the first and last cells already give air. */
   padding: 0 4px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: inset 0 -1px 0 var(--hairline);
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
@@ -262,11 +414,12 @@ body.sheet-open #stats {
      panel sideways. */
   white-space: normal;
 }
-#days th:first-child { text-align: left; padding-left: 14px; }
-#days th:last-child { padding-right: 14px; }
+#days th:first-child { text-align: left; padding-left: 24px; }
+#days th:last-child { padding-right: 24px; }
 #days th button {
   padding: 0;
   border: 0;
+  border-radius: 6px;
   background: none;
   color: inherit;
   font: inherit;
@@ -277,185 +430,108 @@ body.sheet-open #stats {
      thing to hit with a thumb. */
   display: inline-flex;
   align-items: center;
-  justify-content: inherit;
-  min-height: 36px;
+  justify-content: flex-end;
+  min-height: 40px;
+  width: 100%;
 }
-#days th button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+#days th:first-child button { justify-content: flex-start; }
+#days th button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #days th .caret {
   display: none;
   width: 8px;
   height: 8px;
-  margin-left: 2px;
+  margin-left: 3px;
   vertical-align: middle;
   fill: currentColor;
 }
-#days th[aria-sort] { color: var(--text); }
+#days th[aria-sort] { color: var(--accent); }
 #days th[aria-sort] .caret { display: inline-block; }
+/* The transparent side borders inset the row tint by 8px, and with
+   background-clip they turn a full width row into a rounded pill. */
 #days td {
-  height: 36px;
+  height: 40px;
   padding: 0 4px;
-  border-bottom: 1px solid var(--border);
   text-align: right;
   white-space: nowrap;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
 }
-#days td:last-child { padding-right: 14px; }
-#days td:first-child { padding: 0; text-align: left; }
+#days td:first-child {
+  padding: 0;
+  text-align: left;
+  border-left: 8px solid transparent;
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+#days td:last-child {
+  padding-right: 16px;
+  border-right: 8px solid transparent;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
 #days tbody tr { cursor: pointer; }
-#days tbody tr:hover td { background: var(--row-hover); }
-#days tbody tr.selected td { background: var(--selected-bg); }
+@media (hover: hover) {
+  #days tbody tr:hover td { background-color: var(--row-hover); }
+}
+#days tbody tr.selected td { background-color: var(--accent-soft); }
 #days tbody tr.selected { font-weight: 600; }
 .day-row {
   width: 100%;
-  height: 36px;
+  height: 40px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 0 0 14px;
+  gap: 10px;
+  padding: 0 0 0 16px;
   border: 0;
+  border-radius: var(--r-sm);
   background: none;
   color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.day-row:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+.day-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .day-row .swatch {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: 50%;
   flex: none;
+  transition: box-shadow 0.2s ease;
 }
+tr.selected .day-row .swatch { box-shadow: 0 0 0 3px var(--surface), 0 0 0 4.5px currentColor; }
 
-#dock {
-  grid-area: dock;
-  position: relative;
-  z-index: 1;
-  background: var(--panel);
-  min-width: 0;
+#provinces {
+  margin: 8px 12px 0;
+  padding: 16px 4px 20px;
+  border-top: 1px solid var(--hairline);
 }
-#chart {
-  display: block;
-  width: 100%;
-  height: 88px;
-  /* The chart is the touch scrubber on phones, so the page must not take
-     a drag on it as a scroll. */
-  touch-action: none;
-  cursor: crosshair;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  overflow: visible;
-}
-#chart text { fill: var(--muted); font-family: inherit; }
-#chart .grid line { stroke: var(--border); stroke-width: 1; }
-#chart .cursor line { stroke: var(--muted); stroke-width: 1; }
-#chart .cursor circle { stroke: var(--panel); stroke-width: 1.5; }
-#chart .day { transition: opacity 0.15s ease; }
-#scrubber {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px 0 0;
-}
-#play {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-#play:hover { background: var(--row-hover); }
-#play:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-#play svg { width: 14px; height: 14px; fill: currentColor; }
-#play .icon-pause { display: none; }
-#play.playing .icon-play { display: none; }
-#play.playing .icon-pause { display: block; }
-#scrub {
-  flex: 1;
-  min-width: 40px;
-  margin: 0;
-  accent-color: var(--link);
-}
-#scrub:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-#readout {
-  flex: none;
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--muted);
-}
-#readout .when { color: var(--text); font-weight: 600; }
-/* Fixed widths so the slider does not shift as the numbers change length. */
-#readout .ele { min-width: 6.5ch; text-align: right; }
-#readout .km { min-width: 10.5ch; text-align: right; }
-
-@media (max-width: 767px) {
-  /* With the sheet open the map is about a quarter of the screen and the
-     title panel would cover a third of that, including the day the user
-     just tapped. The title is only a name, so nothing is lost. */
-  body.sheet-open #title { display: none; }
-}
-
-@media (min-width: 768px) {
-  body {
-    grid-template-columns: 380px 1fr;
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas: "title map" "stats map" "stats dock";
-    padding-bottom: 0;
-  }
-  #title {
-    grid-area: title;
-    position: static;
-    max-width: none;
-    padding: 14px 16px;
-    border-radius: 0;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-    pointer-events: auto;
-  }
-  #title h1 { font-size: 18px; }
-  #handle { display: none; }
-  .leaflet-container .leaflet-bottom .leaflet-control-attribution { margin-bottom: 0; }
-  #stats, body.sheet-open #stats {
-    height: auto;
-    min-height: 0;
-    overflow: auto;
-    visibility: visible;
-    border-right: 1px solid var(--border);
-    transition: none;
-  }
-  #totals { padding-top: 14px; }
-  #dock { border-top: 1px solid var(--border); }
-  #chart { height: 120px; }
-  #scrubber { padding-right: 16px; gap: 12px; }
-  #readout { font-size: 13px; gap: 12px; }
-}
-
-#provinces { padding: 14px 14px 18px; }
 #provinces h2 {
-  margin: 0 0 8px;
-  font-size: 12px;
+  margin: 0 0 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text);
 }
 #provinces dl {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 12px;
+  gap: 12px;
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
+/* Each province is a row with a thin bar for its share of the trip's
+   hours, scaled to the longest so the order is readable at a glance. */
+#provinces dl > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 6px;
+  column-gap: 12px;
+}
+#provinces dl > div::after {
+  content: "";
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) 0 calc(var(--share, 0) * 100%), var(--track) calc(var(--share, 0) * 100%) 100%);
+}
+#provinces dt { color: var(--text); }
 #provinces dd {
   margin: 0;
   font-weight: 600;
@@ -464,75 +540,368 @@ body.sheet-open #stats {
   white-space: nowrap;
 }
 
-/* The casing under each day line takes the panel colour: white under the
-   light tiles, near black under the inverted dark ones. */
-.leaflet-overlay-pane path.casing { stroke: var(--panel); }
+/* Dock. The scrubber wrapper steps out of the layout so the readout can
+   head the dock above the chart while the play button and slider sit
+   below it, under the same grid. */
+#dock {
+  grid-column: 2;
+  grid-row: 3;
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 26px 80px 46px;
+  grid-template-areas: "read read" "chart chart" "play scrub";
+  column-gap: 12px;
+  padding: 0 16px 6px;
+}
+#scrubber { display: contents; }
+#chart {
+  grid-area: chart;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The chart is the touch scrubber on phones, so the page must not take
+     a drag on it as a scroll. */
+  touch-action: none;
+  cursor: crosshair;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  overflow: visible;
+}
+#chart text { fill: var(--faint); font-family: inherit; }
+#chart .grid line { stroke: var(--hairline); stroke-width: 1; }
+#chart .cursor line { stroke: var(--text); stroke-opacity: 0.35; stroke-width: 1; }
+#chart .cursor circle { stroke: var(--surface); stroke-width: 2; }
+#chart .day { transition: opacity 0.3s ease; }
+#play {
+  grid-area: play;
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 4px 14px var(--accent-glow);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s ease, filter 0.2s ease;
+}
+@media (hover: hover) {
+  #play:hover { filter: brightness(1.08); box-shadow: 0 6px 20px var(--accent-glow); }
+}
+#play:active { transform: scale(0.92); }
+#play:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#play svg { width: 14px; height: 14px; fill: currentColor; }
+/* The triangle's visual centre sits left of its box, so it moves a pixel
+   right to look centred in the circle. */
+#play .icon-play { transform: translateX(1px); }
+#play .icon-pause { display: none; }
+#play.playing .icon-play { display: none; }
+#play.playing .icon-pause { display: block; }
+
+/* Slider drawn by hand so the filled part of the track carries the accent;
+   --pct comes from setIndex. Firefox has a native progress part instead. */
+#scrub {
+  grid-area: scrub;
+  align-self: center;
+  width: 100%;
+  min-width: 40px;
+  height: 40px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  --pct: 0%;
+}
+#scrub::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0 var(--pct), var(--track) var(--pct) 100%);
+}
+#scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.28);
+  transition: transform 0.2s var(--ease);
+}
+#scrub:active::-webkit-slider-thumb { transform: scale(1.15); }
+#scrub::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track); }
+#scrub::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+#scrub::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+#scrub:focus-visible { outline: none; }
+#scrub:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent); }
+#scrub:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent); }
+
+#readout {
+  grid-area: read;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--muted);
+}
+/* The dot repeats the current day's colour, the same as the map marker,
+   so the readout and the marker read as one thing. */
+#readout .when {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+#readout .when::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--day, var(--accent));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* Without Leaflet the script stops before the first position is set. */
+#readout .when:empty::before { display: none; }
+/* Fixed widths so the numbers do not shift as they change length. */
+#readout .ele { min-width: 6.5ch; text-align: right; }
+#readout .km { min-width: 10.5ch; text-align: right; }
+
+@media (max-width: 767px) {
+  /* With the sheet open the map is about a quarter of the screen and the
+     title pill would cover part of the day the user just tapped. The title
+     is only a name, so it slides out of the way. */
+  body.sheet-open #title {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity 0.25s ease, transform 0.25s var(--ease), visibility 0s linear 0.25s;
+  }
+  .leaflet-container .leaflet-control-attribution { font-size: 10px; }
+}
+
+/* Desktop and tablet: the stats float as a glass card on the left with the
+   title at its top, and the dock floats along the bottom of the map to the
+   right of the card. Same grid, five tracks each way. */
+@media (min-width: 768px) {
+  :root { --inset: 16px; }
+  body {
+    grid-template-columns:
+      calc(var(--inset) + env(safe-area-inset-left, 0px)) 380px var(--inset)
+      minmax(0, 1fr) calc(var(--inset) + env(safe-area-inset-right, 0px));
+    grid-template-rows:
+      calc(var(--inset) + env(safe-area-inset-top, 0px)) auto minmax(0, 1fr) auto
+      calc(var(--inset) + env(safe-area-inset-bottom, 0px));
+  }
+  body::before { grid-column: 2; grid-row: 2 / 5; border-radius: var(--r-card); }
+  #title {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: 2;
+    max-width: none;
+    min-height: 0;
+    padding: 18px 20px 14px;
+    gap: 12px;
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    pointer-events: auto;
+  }
+  #title h1 { font-size: 19px; letter-spacing: -0.015em; }
+  .mark { width: 32px; height: 32px; padding: 7px; }
+  /* A hairline under the title once the stats scroll under it. */
+  #title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--hairline);
+  }
+  #handle { display: none; }
+  #stats, body.sheet-open #stats {
+    grid-column: 2;
+    grid-row: 3 / 5;
+    height: auto;
+    min-height: 0;
+    overflow: auto;
+    visibility: visible;
+    border-radius: 0 0 var(--r-card) var(--r-card);
+    transition: none;
+  }
+  #totals { padding: 14px 16px 16px; }
+  #provinces { margin: 8px 16px 0; padding-bottom: 24px; }
+  #days th:first-child { padding-left: 28px; }
+  #days th:last-child { padding-right: 28px; }
+  #days td:first-child { border-left-width: 12px; }
+  #days td:last-child { border-right-width: 12px; }
+  #dock {
+    grid-column: 4;
+    grid-row: 4;
+    grid-template-rows: 36px 108px 50px;
+    padding: 4px 20px 6px;
+    border-radius: var(--r-card);
+  }
+  #readout { align-items: center; font-size: 13px; gap: 16px; }
+  #readout .when { font-size: 14px; }
+  .map-missing { left: calc(412px + 24px); top: 45%; }
+}
+@media (min-width: 1280px) {
+  :root { --inset: 20px; }
+  #dock { padding-left: 24px; padding-right: 24px; }
+}
+/* The dock is its own pane of glass on desktop; on a phone it shares the
+   sheet's. */
+@media (min-width: 768px) {
+  #dock { background: var(--glass-solid); box-shadow: var(--shadow-float), inset 0 0 0 1px var(--glass-edge); }
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  @media (min-width: 768px) {
+    #dock { background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+  }
+}
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+    body { timeline-scope: --panel; }
+    #stats { scroll-timeline: --panel block; }
+    #title::after {
+      animation: hairline-in linear both;
+      animation-timeline: --panel;
+      animation-range: 0 32px;
+    }
+  }
+}
+@keyframes hairline-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Every transition collapses to an instant change. 1ms rather than none
+   so transitionend still fires and the map refits after the sheet moves. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 1ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+  body.sheet-open #title { transition-delay: 0s !important; }
+}
+
+/* Route. The casing under each day line takes the theme's base colour,
+   and one soft shadow under the whole overlay lifts the lines off the
+   tiles so the route reads first. */
+.leaflet-overlay-pane path.casing { stroke: var(--casing); }
+.leaflet-overlay-pane svg { filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22)); }
+.leaflet-track-pane svg { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
 /* Night dots stay dark with a white ring in both themes, the reverse of
    the white start and end dots, so the two kinds read apart at a glance
    on the inverted dark tiles too. */
 .leaflet-pane path.night { fill: #1b1b1b; stroke: #ffffff; }
 
-/* Leaflet controls in the page's own colours so they read in both themes. */
+/* Leaflet controls in the page's own glass so they read in both themes. */
 .leaflet-container {
   background: var(--map-bg);
   font-family: inherit;
 }
-/* Same inset rule as #title, so the zoom control and attribution stay
-   clear of the sensor housing in landscape. */
-.leaflet-top .leaflet-control { margin-top: calc(10px + env(safe-area-inset-top, 0px)); }
-.leaflet-right .leaflet-control { margin-right: calc(10px + env(safe-area-inset-right, 0px)); }
-.leaflet-bar {
-  box-shadow: 0 1px 4px var(--control-shadow);
-}
-.leaflet-touch .leaflet-bar {
-  border-color: var(--border);
+.leaflet-top .leaflet-control { margin-top: calc(var(--inset) + env(safe-area-inset-top, 0px)); }
+.leaflet-right .leaflet-control { margin-right: calc(var(--inset) + env(safe-area-inset-right, 0px)); }
+/* The sheet or the dock covers the bottom of the map, so the attribution
+   rides on top of whichever it is. --occl-bottom is set from the script. */
+.leaflet-bottom { bottom: var(--occl-bottom, 0px); }
+.leaflet-bottom .leaflet-control { margin-bottom: 8px; }
+.leaflet-bar, .leaflet-touch .leaflet-bar {
+  border: 0;
+  border-radius: var(--r-md);
+  overflow: hidden;
 }
 .leaflet-bar a,
-.leaflet-bar a:hover,
-.leaflet-bar a:focus {
-  background: var(--panel);
+.leaflet-touch .leaflet-bar a {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 20px;
+  font-weight: 400;
+  background: transparent;
   color: var(--text);
-  border-bottom-color: var(--border);
+  border-bottom: 1px solid var(--hairline);
+  transition: background-color 0.15s ease;
 }
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out { font-size: 20px; }
+.leaflet-bar a:last-child { border-bottom: 0; }
 .leaflet-bar a:hover,
 .leaflet-bar a:focus {
   background: var(--row-hover);
+  color: var(--text);
 }
-.leaflet-bar a.leaflet-disabled {
-  background: var(--panel);
-  color: var(--border);
+.leaflet-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: var(--r-md); }
+.leaflet-bar a.leaflet-disabled,
+.leaflet-bar a.leaflet-disabled:hover {
+  background: transparent;
+  color: var(--faint);
+  opacity: 0.6;
 }
 .leaflet-container .leaflet-control-attribution {
-  background: var(--panel-glass);
+  margin-right: calc(var(--inset) + env(safe-area-inset-right, 0px));
+  padding: 2px 8px;
+  border-radius: 8px;
   color: var(--muted);
   font-size: 11px;
+  box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--glass-edge);
 }
-.leaflet-container .leaflet-control-attribution a {
-  color: var(--link);
-}
+.leaflet-container .leaflet-control-attribution a { color: var(--accent); }
 .leaflet-tooltip {
-  background: var(--panel);
-  border-color: var(--border);
+  background: var(--surface);
+  border: 0;
+  border-radius: 8px;
   color: var(--text);
   font-weight: 600;
   font-size: 12px;
-  padding: 2px 7px;
-  box-shadow: 0 1px 3px var(--control-shadow);
+  padding: 3px 8px;
+  box-shadow: var(--shadow-chip);
 }
-.leaflet-tooltip-top:before { border-top-color: var(--panel); }
-.leaflet-tooltip-bottom:before { border-bottom-color: var(--panel); }
-.leaflet-tooltip-left:before { border-left-color: var(--panel); }
-.leaflet-tooltip-right:before { border-right-color: var(--panel); }
+.leaflet-tooltip-top:before { border-top-color: var(--surface); }
+.leaflet-tooltip-bottom:before { border-bottom-color: var(--surface); }
+.leaflet-tooltip-left:before { border-left-color: var(--surface); }
+.leaflet-tooltip-right:before { border-right-color: var(--surface); }
 </style>
 </head>
 <body>
-<header id="title">
+<header id="title" class="glass">
+  <svg class="mark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+    <path d="M3.5 12.5c0-4 9-3 9-8.5"></path>
+    <circle cx="3.5" cy="12.5" r="1.9"></circle>
+    <circle cx="12.5" cy="4" r="1.9"></circle>
+  </svg>
   <h1>British Columbia road trip</h1>
 </header>
 <div id="map"></div>
 <button id="handle" type="button" aria-expanded="false" aria-controls="stats">
   <span class="grip" aria-hidden="true"></span>
   <span class="handle-text">Trip stats</span>
+  <svg class="chev" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 6.5 5 3.5l3 3"></path></svg>
 </button>
 <div id="dock">
   <svg id="chart" role="img" aria-label="Elevation along the trip"></svg>
@@ -599,34 +968,92 @@ body.sheet-open #stats {
   const LINE_OPACITY = 0.9;
   const FADED_OPACITY = 0.25;
   const CASING_OPACITY = 0.8;
-  // Room so the fitted track clears the zoom control, and on phones the
-  // title panel floating over the map. The title box is read at call
-  // time because the sheet changes the map height and the title can wrap.
+  // Room so the fitted track clears the zoom control and the glass that
+  // floats over the full-bleed map: the card on the left and the dock at
+  // the bottom on desktop, the title pill and the sheet on a phone.
   const FIT_PAD = 36;
   const titleEl = document.getElementById('title');
-  function fitPadding() {
-    const mapH = map.getSize().y;
-    // Leaflet subtracts the padding from the map size before it picks a
-    // zoom, and a negative size comes out as zoom 19. The open sheet is
-    // capped so the map keeps about 150px, but a viewport shorter than
-    // that still exists, so any map too short for the padding gets none.
-    if (mapH < 2 * FIT_PAD + 40) return { padding: [0, 0] };
-    let top = FIT_PAD;
-    if (getComputedStyle(titleEl).position === 'absolute') {
-      // The title is hidden while the sheet is open, so its height is 0
-      // then and the floor keeps the fit clear of the zoom control.
-      top = Math.max(FIT_PAD, titleEl.offsetTop + titleEl.offsetHeight + 16);
+  const reduceMotion = typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // How far each floating panel reaches into the map, in pixels. Read from
+  // the boxes because the sheet height animates and the title can wrap;
+  // cached because playback asks every 30ms, and cleared by the observer
+  // further down whenever a panel changes size. Elements are looked up by
+  // id here since this runs on load, before the consts below exist.
+  let insetCache = null;
+  function overlayInsets() {
+    if (insetCache) return insetCache;
+    const m = document.getElementById('map').getBoundingClientRect();
+    const handleEl = document.getElementById('handle');
+    const o = { top: 0, left: 0, bottom: 0 };
+    if (getComputedStyle(handleEl).display === 'none') {
+      o.left = document.getElementById('stats').getBoundingClientRect().right - m.left;
+      o.bottom = m.bottom - document.getElementById('dock').getBoundingClientRect().top;
+    } else {
+      o.bottom = m.bottom - handleEl.getBoundingClientRect().top;
+      // The title slides away while the sheet is open, so it only counts
+      // when it is showing.
+      if (getComputedStyle(titleEl).visibility !== 'hidden') {
+        o.top = titleEl.getBoundingClientRect().bottom - m.top;
+      }
     }
-    // When the title would eat more than half of a short map there is no
-    // room to fit under it, so the flat value wins and the overlap stays.
-    if (top + FIT_PAD > mapH / 2) top = FIT_PAD;
-    return { paddingTopLeft: [FIT_PAD, top], paddingBottomRight: [FIT_PAD, FIT_PAD] };
+    o.top = Math.max(0, Math.round(o.top));
+    o.left = Math.max(0, Math.round(o.left));
+    o.bottom = Math.max(0, Math.round(o.bottom));
+    insetCache = o;
+    return o;
+  }
+
+  function fitPadding() {
+    const size = map.getSize();
+    const o = overlayInsets();
+    // Leaflet subtracts the padding from the map size before it picks a
+    // zoom, and a negative size comes out as zoom 19. So each step below
+    // gives up some room until what is left is big enough to fit into.
+    const tries = [
+      [o.left + FIT_PAD, Math.max(FIT_PAD, o.top + 16), FIT_PAD, o.bottom + FIT_PAD],
+      [o.left + FIT_PAD, FIT_PAD, FIT_PAD, o.bottom + FIT_PAD],
+      [o.left + 8, o.top + 8, 8, o.bottom + 8],
+      [FIT_PAD, FIT_PAD, FIT_PAD, FIT_PAD]
+    ];
+    for (let t = 0; t < tries.length; t++) {
+      const p = tries[t];
+      if (size.x - p[0] - p[2] >= 80 && size.y - p[1] - p[3] >= 60) {
+        return { paddingTopLeft: [p[0], p[1]], paddingBottomRight: [p[2], p[3]] };
+      }
+    }
+    return { padding: [0, 0] };
+  }
+  // The playing marker is kept inside the open part of the map too, or it
+  // would run under the card or the sheet.
+  function panPadding() {
+    const size = map.getSize();
+    const o = overlayInsets();
+    const tl = [o.left + 48, o.top + 48];
+    const br = [48, o.bottom + 48];
+    if (size.x - tl[0] - br[0] < 40 || size.y - tl[1] - br[1] < 40) return { padding: [16, 16] };
+    return { paddingTopLeft: tl, paddingBottomRight: br };
+  }
+  // Selecting a day flies there instead of jumping, unless the viewer
+  // asked for less motion.
+  function fitTo(bounds) {
+    if (reduceMotion) {
+      map.fitBounds(bounds, Object.assign({ animate: false }, fitPadding()));
+    } else {
+      map.flyToBounds(bounds, Object.assign({ duration: 0.9, easeLinearity: 0.2 }, fitPadding()));
+    }
   }
 
   const latlngs = TRIP.points.map(function (p) { return [p[0], p[1]]; });
   const trackBounds = L.latLngBounds(latlngs);
 
-  const map = L.map('map', { zoomControl: false });
+  const map = L.map('map', {
+    zoomControl: false,
+    zoomAnimation: !reduceMotion,
+    fadeAnimation: !reduceMotion,
+    markerZoomAnimation: !reduceMotion
+  });
   // The default prefix carries an inline flag icon from the library; the
   // credit stays, as text.
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
@@ -742,15 +1169,24 @@ body.sheet-open #stats {
     { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', index: totals.low_idx },
     { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx }
   ];
+  // The unit goes in a span of its own so it can sit smaller than the
+  // number; the text content stays "12,613.7 km" for readers and tests.
+  function fillValue(node, value) {
+    const sp = value.lastIndexOf(' ');
+    if (sp < 0) { node.textContent = value; return; }
+    node.appendChild(document.createTextNode(value.slice(0, sp)));
+    node.appendChild(el('span', 'unit', value.slice(sp)));
+  }
   const totalsList = el('dl');
   totalItems.forEach(function (item) {
-    const wrap = el('div', item.hero ? 'hero' : '');
+    const wrap = el('div', item.hero ? 'hero' : (item.index === undefined ? '' : 'place'));
     wrap.appendChild(el('dt', '', item.label));
     const dd = el('dd');
     if (item.index === undefined) {
-      dd.textContent = item.value;
+      fillValue(dd, item.value);
     } else {
-      const jump = el('button', 'jump', item.value);
+      const jump = el('button', 'jump');
+      fillValue(jump, item.value);
       jump.type = 'button';
       jump.setAttribute('data-index', String(item.index));
       jump.addEventListener('click', function () { setIndex(item.index, 'jump'); });
@@ -770,9 +1206,14 @@ body.sheet-open #stats {
     return (days ? days + ' d ' : '') + rest + ' h';
   }
   const provinceList = document.getElementById('province-list');
+  const provMax = TRIP.provinces.reduce(function (m, p) { return Math.max(m, p.hours); }, 0) || 1;
   TRIP.provinces.forEach(function (prov) {
-    provinceList.appendChild(el('dt', '', prov.name));
-    provinceList.appendChild(el('dd', '', fmtDuration(prov.hours)));
+    // A div per pair is allowed inside a dl and gives the share bar a row.
+    const item = el('div');
+    item.style.setProperty('--share', String(prov.hours / provMax));
+    item.appendChild(el('dt', '', prov.name));
+    item.appendChild(el('dd', '', fmtDuration(prov.hours)));
+    provinceList.appendChild(item);
   });
 
   // Day table. The row button carries the accessible name and pressed
@@ -901,7 +1342,7 @@ body.sheet-open #stats {
     });
     fadeChart();
     revealSelected();
-    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
   }
 
   // Not scrollIntoView: the sticky header paints over the scrollport
@@ -935,21 +1376,34 @@ body.sheet-open #stats {
     handle.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
 
-  // The map box changes size when the sheet opens or closes; without this
-  // Leaflet keeps the old size and leaves grey tiles at the edges.
+  // The map fills the window, so it changes size on resize and rotation;
+  // without this Leaflet keeps the old size and leaves grey tiles at the
+  // edges.
   const mapEl = document.getElementById('map');
+  // When a panel changes size the cached insets go stale, and the
+  // attribution, which rides on top of the sheet or the dock, moves with
+  // it through --occl-bottom.
+  function panelsMoved() {
+    insetCache = null;
+    mapEl.style.setProperty('--occl-bottom', overlayInsets().bottom + 'px');
+  }
   if (typeof ResizeObserver === 'function') {
     new ResizeObserver(function () { map.invalidateSize(); }).observe(mapEl);
+    const panelObserver = new ResizeObserver(panelsMoved);
+    ['map', 'title', 'stats', 'dock'].forEach(function (id) {
+      panelObserver.observe(document.getElementById(id));
+    });
   } else {
-    handle.addEventListener('click', function () { setTimeout(function () { map.invalidateSize(); }, 250); });
+    window.addEventListener('resize', function () { map.invalidateSize(); panelsMoved(); });
   }
-  // With the dock below it, the map with the sheet open is about a quarter
-  // of a phone screen; keeping the old centre would cut off the start and
-  // end, so the view is fitted again once the height animation ends.
+  panelsMoved();
+  // The open sheet covers about half of a phone screen; keeping the old
+  // view would leave the start and end under it, so the view is fitted
+  // again into what is left once the height animation ends.
   document.getElementById('stats').addEventListener('transitionend', function (e) {
     if (e.propertyName !== 'height') return;
-    map.invalidateSize();
-    map.fitBounds(selectedDay === null ? trackBounds : dayBounds[selectedDay], fitPadding());
+    panelsMoved();
+    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
     revealSelected();
   });
 
@@ -1004,6 +1458,8 @@ body.sheet-open #stats {
     trackMarker.setLatLng(latlngs[i]);
     trackMarker.setStyle({ fillColor: day.color });
     readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
+    readWhen.style.setProperty('--day', day.color);
+    slider.style.setProperty('--pct', (LAST ? i / LAST * 100 : 0).toFixed(2) + '%');
     readEle.textContent = Math.round(p[2]).toLocaleString('en-CA') + ' m';
     readKm.textContent = p[4].toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km';
     if (source !== 'slider') slider.value = String(i);
@@ -1012,7 +1468,7 @@ body.sheet-open #stats {
     // nudge that fit by the difference between the two paddings. The pan
     // is not animated because a 250ms animation restarted every 30ms tick
     // never catches the marker, which then runs off the map while playing.
-    if (source !== 'init') map.panInside(latlngs[i], { padding: [48, 48], animate: false });
+    if (source !== 'init') map.panInside(latlngs[i], Object.assign({ animate: false }, panPadding()));
   }
 
   let timer = null;
@@ -1042,11 +1498,13 @@ body.sheet-open #stats {
   // The chart viewBox is in CSS pixels so stroke widths and the 10px
   // labels stay the same size at every dock width.
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const PAD = { left: 36, right: 10, top: 8, bottom: 18 };
+  const PAD = { left: 36, right: 4, top: 8, bottom: 18 };
   const Y_STEPS = [100, 200, 250, 500, 1000];
   // GPS noise at lake level puts the floor a few metres below sea level.
   const SEA_NOISE_M = 20;
-  const X_STEP_KM = 2000;
+  // Labels like "12,000 km" need about 70px each, so a narrow dock (a
+  // small phone, or a tablet beside the card) takes every other tick.
+  function xStepKm(plotW) { return plotW < 380 ? 4000 : 2000; }
 
   function svgEl(name, attrs) {
     const n = document.createElementNS(SVG_NS, name);
@@ -1121,7 +1579,8 @@ body.sheet-open #stats {
   }
 
   function render() {
-    const W = Math.round(dock.getBoundingClientRect().width);
+    // The chart's own width, not the dock's: the dock has side padding.
+    const W = Math.round(chart.getBoundingClientRect().width);
     const H = Math.round(chart.getBoundingClientRect().height);
     if (W < 80 || H < 40) return;
     while (chart.firstChild) chart.removeChild(chart.firstChild);
@@ -1158,6 +1617,7 @@ body.sheet-open #stats {
       grid.appendChild(label);
     });
     const bottom = Math.round(PAD.top + plotH) + 0.5;
+    const X_STEP_KM = xStepKm(plotW);
     for (let km = 0; km <= totals.km; km += X_STEP_KM) {
       const gx = Math.round(x(km)) + 0.5;
       grid.appendChild(svgEl('line', { x1: gx, x2: gx, y1: bottom, y2: bottom + 3 }));
@@ -1166,6 +1626,20 @@ body.sheet-open #stats {
       grid.appendChild(label);
     }
     chart.appendChild(grid);
+
+    // The area under the line is a wash of the day's colour that fades out
+    // toward the floor, through one shared mask, so the profile has some
+    // body without the fills turning into saturated blocks.
+    const defs = svgEl('defs', {});
+    const grad = svgEl('linearGradient', { id: 'chart-fade', x1: 0, y1: 0, x2: 0, y2: 1 });
+    grad.appendChild(svgEl('stop', { offset: 0, 'stop-color': '#fff', 'stop-opacity': 0.26 }));
+    grad.appendChild(svgEl('stop', { offset: 1, 'stop-color': '#fff', 'stop-opacity': 0.02 }));
+    defs.appendChild(grad);
+    const mask = svgEl('mask', { id: 'chart-mask', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: W, height: H });
+    mask.appendChild(svgEl('rect', { x: left, y: PAD.top, width: plotW, height: plotH, fill: 'url(#chart-fade)' }));
+    defs.appendChild(mask);
+    chart.appendChild(defs);
+    const floorY = (PAD.top + plotH).toFixed(1);
 
     // One path per segment, so the chart breaks at the same gaps the map does.
     const days = svgEl('g', {});
@@ -1178,7 +1652,11 @@ body.sheet-open #stats {
           d += (i === seg[0] ? 'M' : 'L') + x(points[i][4]).toFixed(1) + ' ' + y(points[i][2]).toFixed(1);
         }
         g.appendChild(svgEl('path', {
-          d: d, fill: 'none', stroke: day.color, 'stroke-width': 1.5,
+          d: d + 'L' + x(points[seg[1]][4]).toFixed(1) + ' ' + floorY + 'L' + x(points[seg[0]][4]).toFixed(1) + ' ' + floorY + 'Z',
+          fill: day.color, stroke: 'none', mask: 'url(#chart-mask)'
+        }));
+        g.appendChild(svgEl('path', {
+          d: d, fill: 'none', stroke: day.color, 'stroke-width': 2,
           'stroke-linejoin': 'round', 'stroke-linecap': 'round'
         }));
       });
@@ -1189,7 +1667,7 @@ body.sheet-open #stats {
 
     const cursor = svgEl('g', { class: 'cursor' });
     cursorLine = svgEl('line', { x1: left, x2: left, y1: PAD.top, y2: PAD.top + plotH });
-    cursorDot = svgEl('circle', { r: 4, cx: left, cy: PAD.top });
+    cursorDot = svgEl('circle', { r: 5, cx: left, cy: PAD.top });
     cursor.appendChild(cursorLine);
     cursor.appendChild(cursorDot);
     chart.appendChild(cursor);
