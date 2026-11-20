@@ -645,6 +645,106 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
             "records": records, "totals": totals}
 
 
+DEG = "\u00b0C"
+
+
+def add_weather(data, pts, path):
+    """Join the archived readings from tools/fetch_weather.py onto the
+    fixes, days and nights. A missing file just means no weather on the
+    page, so the build still works for anyone without it."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        wx = json.load(f)
+    fixes = wx["fixes"]
+    descs = []
+    desc_at = {}
+    per_point = []
+    station_hour = []
+    for p in pts:
+        r = fixes.get(str(int(p["t"].timestamp())))
+        if r is None:
+            per_point.append(None)
+            station_hour.append(None)
+            continue
+        station, _km, off, temp, wind, precip, _rh, _hx, _wc, desc = r
+        di = None
+        # Stations without an observer report "NA" rather than leaving it empty.
+        if desc and desc.strip().upper() not in ("NA", "N/A"):
+            di = desc_at.setdefault(desc, len(descs))
+            if di == len(descs):
+                descs.append(desc)
+        per_point.append([temp, wind, precip, di])
+        # One station hour can sit under several fixes ten minutes apart;
+        # keyed so its rain is counted once.
+        station_hour.append((station, int(p["t"].timestamp()) // 3600 + round(off / 60.0)))
+    data["wx"] = per_point
+    data["wx_desc"] = descs
+    data["wx_source"] = {"name": "Environment and Climate Change Canada",
+                         "url": "https://climate.weather.gc.ca/", "licence": wx.get("licence")}
+
+    days = data["days"]
+    for d, day in enumerate(days):
+        idx = [i for i, p in enumerate(data["points"]) if p[5] == d and per_point[i]]
+        temps = [per_point[i][0] for i in idx]
+        winds = [per_point[i][1] for i in idx if per_point[i][1] is not None]
+        rain = {}
+        for i in idx:
+            if per_point[i][2] is not None:
+                rain[station_hour[i]] = per_point[i][2]
+        names = [descs[per_point[i][3]] for i in idx if per_point[i][3] is not None]
+        day["wx"] = None if not temps else {
+            "hi": round(max(temps)), "lo": round(min(temps)),
+            "wind_max": round(max(winds)) if winds else None,
+            "precip_mm": round(sum(rain.values()), 1) if rain else None,
+            "desc": max(set(names), key=names.count) if names else None,
+        }
+
+    # Overnight low: the coldest reading while parked at the spot between
+    # six in the evening and nine in the morning, Toronto time.
+    for spot in data["nights"]:
+        home = pts[spot["idx"]]
+        temps = []
+        for i in range(spot["idx"], len(pts)):
+            if haversine_m(home, pts[i]) > STAY_RADIUS_M:
+                break
+            h = pts[i]["local"].hour
+            if per_point[i] and (h >= 18 or h < 9):
+                temps.append(per_point[i][0])
+        spot["low"] = round(min(temps)) if temps else None
+
+    recs = data["records"]
+
+    def add(key, label, value_text, day, idx):
+        recs.append({"key": key, "label": label, "value_text": value_text, "day": day, "idx": idx})
+
+    def day_of_night(k):
+        return next((d for d, day in enumerate(days) if day.get("night") == k), None)
+
+    lows = [(s["low"], k) for k, s in enumerate(data["nights"]) if s["low"] is not None]
+    if lows:
+        low, k = min(lows)
+        add("coldest_night", "Coldest night", "%d %s" % (low, DEG), day_of_night(k), data["nights"][k]["idx"])
+    have = [i for i, w in enumerate(per_point) if w]
+    if have:
+        i = max(have, key=lambda i: per_point[i][0])
+        add("warmest", "Warmest reading", "%d %s" % (round(per_point[i][0]), DEG), data["points"][i][5], i)
+        frost = next((i for i in have if per_point[i][0] <= 0), None)
+        if frost is not None:
+            add("first_frost", "First frost", "%d %s" % (round(per_point[frost][0]), DEG),
+                data["points"][frost][5], frost)
+        windy = [i for i in have if per_point[i][1] is not None]
+        if windy:
+            i = max(windy, key=lambda i: per_point[i][1])
+            add("windiest", "Windiest reading", "%d km/h" % round(per_point[i][1]), data["points"][i][5], i)
+    wet = [d for d, day in enumerate(days) if day["wx"] and day["wx"]["precip_mm"]]
+    if wet:
+        d = max(wet, key=lambda d: days[d]["wx"]["precip_mm"])
+        add("wettest", "Wettest day", "%.1f mm" % days[d]["wx"]["precip_mm"], d, None)
+    data["totals"]["wx_fixes"] = len(have)
+    data["totals"]["wx_stations"] = len(wx["stations"])
+
+
 def print_summary(data, dropped_dup, dropped_home, trim_km):
     t = data["totals"]
     head = "%-11s %8s %9s %9s %9s %7s %7s %5s  %-13s %5s  %s" % (
@@ -678,6 +778,9 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
     for r in data["records"]:
         when = data["days"][r["day"]]["label"] if r["day"] is not None else "-"
         print("  %-26s %-15s %s" % (r["label"], r["value_text"], when))
+    if "wx_fixes" in t:
+        print("weather for %d of %d fixes from %d Environment Canada stations" % (
+            t["wx_fixes"], t["points"], t["wx_stations"]))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
     if t["scale"] != 1:
@@ -710,6 +813,8 @@ def main(argv=None):
     ap.add_argument("--template", default="template.html")
     ap.add_argument("--out", default="docs/index.html")
     ap.add_argument("--title", default=DEFAULT_TITLE)
+    ap.add_argument("--weather", default="data/weather.json",
+                    help="archived readings from tools/fetch_weather.py (skipped if missing)")
     ap.add_argument("--trim-home-km", type=float, default=1.5,
                     help="drop points within this distance of the first fix (default 1.5)")
     ap.add_argument("--odometer-km", type=float, default=ODOMETER_KM,
@@ -722,6 +827,7 @@ def main(argv=None):
     pts, dropped_dup = drop_duplicate_times(pts)
     pts, dropped_home = trim_home(pts, args.trim_home_km)
     data = compute(pts, local_zone(), args.odometer_km)
+    add_weather(data, pts, args.weather)
     # The template reads these as meta.thresholds.*, so they stay nested
     # rather than mixed in with the title and zone.
     data["meta"] = {
