@@ -60,18 +60,18 @@
   --r-card: 20px;
   --r-md: 14px;
   --r-sm: 10px;
-  --inset: 10px;
+  --inset: 8px;
   --gut: 16px;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* The open sheet height, here so the script can read the final height
      from a probe the moment the sheet starts to open. The handle, dock and
-     bottom gap take about 216px, so the cap keeps about 146px of map. */
-  --sheet-open: min(50vh, calc(100vh - 362px));
+     bottom gap take about 220px, so the cap keeps about 146px of map. */
+  --sheet-open: min(50vh, calc(100vh - 366px));
 }
 @supports (height: 100dvh) {
-  :root { --sheet-open: min(50dvh, calc(100dvh - 362px)); }
+  :root { --sheet-open: min(50dvh, calc(100dvh - 366px)); }
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -307,6 +307,10 @@ body.sheet-open #handle .chev { transform: rotate(180deg); }
   border-radius: 0 0 var(--r-sheet) var(--r-sheet);
   overscroll-behavior: contain;
   scroll-behavior: smooth;
+  /* Keyboard focus scrolls a row to the top of the scroller, which is
+     where the 36px sticky header sits; this keeps the row and the 2px
+     ring around it below the header. */
+  scroll-padding-top: 40px;
   scrollbar-width: thin;
   scrollbar-color: var(--track) transparent;
   transition: height 0.45s var(--ease-sheet), visibility 0s linear 0.45s;
@@ -354,7 +358,9 @@ body.sheet-open #stats {
   letter-spacing: 0;
   color: var(--muted);
 }
-#totals .hero { padding-bottom: 18px; }
+/* The dl around the distance carries the class too, so the space is set
+   on the inner pair only; on both it doubled to 48px. */
+#totals div.hero { padding-bottom: 24px; }
 #totals .hero dt { margin-bottom: 2px; }
 #totals .hero dd {
   font-size: 44px;
@@ -370,7 +376,7 @@ body.sheet-open #stats {
 #totals .pairs { column-gap: 24px; }
 #totals .pairs > div {
   min-width: 0;
-  padding: 10px 0 12px;
+  padding: 12px 0;
   border-top: 1px solid var(--hairline);
 }
 #totals .pairs dt { margin-bottom: 3px; }
@@ -383,7 +389,7 @@ body.sheet-open #stats {
 #totals .place {
   position: relative;
   min-width: 0;
-  padding: 10px 12px 11px;
+  padding: 12px;
   border-radius: var(--r-md);
   box-shadow: inset 0 0 0 1px var(--hairline);
   transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.2s var(--ease);
@@ -391,12 +397,12 @@ body.sheet-open #stats {
 #totals .place dt { margin: 0 18px 3px 0; }
 #totals .place .go {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   width: 14px;
   height: 14px;
   fill: none;
-  stroke: var(--faint);
+  stroke: var(--muted);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -451,8 +457,9 @@ body.sheet-open #stats {
   height: 36px;
   padding: 0;
   /* The panel's own fill laid three times, without a second blur: one
-     layer lets the rows passing under it show through at 14%, three at
-     well under 1%, and the colour still matches the panel around it. */
+     layer would let the rows passing under it ghost through at 14%, three
+     leave well under 1%. The header is near solid as a result and reads a
+     shade lighter than the glass around it over the map. */
   background: linear-gradient(var(--glass), var(--glass)), linear-gradient(var(--glass), var(--glass)), var(--glass);
   box-shadow: inset 0 -1px 0 var(--hairline);
   text-align: right;
@@ -500,42 +507,48 @@ body.sheet-open #stats {
 #days th[aria-sort] { color: var(--accent); }
 #days th[aria-sort] button:hover { color: var(--accent); }
 #days th[aria-sort] .caret { display: block; }
+/* In the right aligned number columns the caret goes in front, so the
+   label stays flush with the right edge of its digits when sorted. */
+#days th:not(:first-child) .caret { order: -1; }
 /* The transparent side borders inset the row tint, and with
    background-clip they turn a full width row into a rounded pill whose
-   text still lines up with the panel gutter. */
+   text still lines up with the panel gutter. The clip takes the border
+   width off the corner radius, so the radius adds it back. */
 #days td {
+  --edge: 8px;
   height: 40px;
   padding: 0 4px;
   text-align: right;
   white-space: nowrap;
   background-clip: padding-box;
-  transition: background-color 0.15s var(--ease), box-shadow 0.2s var(--ease);
+  transition: background-color 0.15s var(--ease);
 }
 #days td:first-child {
   padding: 0;
   text-align: left;
-  border-left: 8px solid transparent;
-  border-radius: var(--r-sm) 0 0 var(--r-sm);
+  border-left: var(--edge) solid transparent;
+  border-radius: calc(var(--r-sm) + var(--edge)) 0 0 calc(var(--r-sm) + var(--edge));
 }
 #days td:last-child {
-  padding-right: calc(var(--gut) - 8px);
-  border-right: 8px solid transparent;
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  padding-right: calc(var(--gut) - var(--edge));
+  border-right: var(--edge) solid transparent;
+  border-radius: 0 calc(var(--r-sm) + var(--edge)) calc(var(--r-sm) + var(--edge)) 0;
 }
-#days tbody tr { cursor: pointer; }
+/* The row is the box for the selected bar and the focus ring, so both
+   cover the whole pill and not only the day cell. */
+#days tbody tr { position: relative; cursor: pointer; }
 @media (hover: hover) {
   #days tbody tr:hover td { background-color: var(--row-hover); }
 }
 #days tbody tr.selected td { background-color: var(--accent-soft); }
-#days tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 #days tbody tr.selected { font-weight: 600; }
 .day-row {
   width: 100%;
   height: 40px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 0 0 calc(var(--gut) - 8px);
+  gap: 12px;
+  padding: 0 0 0 calc(var(--gut) - var(--edge));
   border: 0;
   border-radius: var(--r-sm);
   background: none;
@@ -544,7 +557,30 @@ body.sheet-open #stats {
   text-align: left;
   cursor: pointer;
 }
-.day-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.day-row::before, .day-row::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+/* A straight bar, drawn apart from the rounded tint so it does not bend
+   with the corner, and as tall as the straight part of the pill's edge
+   between the two 10px corners. */
+.day-row::before {
+  left: var(--edge);
+  top: var(--r-sm);
+  bottom: var(--r-sm);
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+tr.selected .day-row::before { opacity: 1; }
+.day-row::after { inset: 0 var(--edge); border-radius: var(--r-sm); }
+.day-row:focus-visible { outline: none; }
+/* The ring hugs the pill from outside, so the selected bar stays visible
+   inside it. */
+.day-row:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 0; }
 /* A short line in the day's colour, the same key the map uses. */
 .day-row .swatch {
   flex: none;
@@ -568,9 +604,9 @@ tr.selected .day-row .swatch { transform: scaleY(1.5); }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
-  row-gap: 7px;
+  row-gap: 8px;
   column-gap: 12px;
-  padding: 10px 0 11px;
+  padding: 12px 0;
   border-top: 1px solid var(--hairline);
 }
 #provinces dl > div::after {
@@ -601,10 +637,10 @@ tr.selected .day-row .swatch { transform: scaleY(1.5); }
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: 26px 80px 54px;
+  grid-template-rows: 26px 80px 48px;
   grid-template-areas: "read read" "chart chart" "play scrub";
-  column-gap: 14px;
-  padding: 0 var(--gut) 4px;
+  column-gap: 12px;
+  padding: 0 var(--gut) 14px;
 }
 /* On a phone a hairline closes the dock off from the stats scrolling
    under it, only while there are stats to separate it from. */
@@ -713,7 +749,9 @@ body.sheet-open #dock::after { opacity: 1; }
   background: #ffffff;
   box-shadow: var(--thumb-shadow);
 }
-#scrub:focus-visible { outline: none; }
+/* A transparent outline shows nothing here, but forced colours paint it
+   in the system colour, where the thumb's ring below is dropped. */
+#scrub:focus-visible { outline: 2px solid transparent; outline-offset: 2px; }
 #scrub:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 #scrub:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
@@ -728,6 +766,9 @@ body.sheet-open #dock::after { opacity: 1; }
   gap: 12px;
   min-width: 0;
   font-size: 12px;
+  /* Tabular figures keep each value a fixed width while its digit count
+     holds, so the cluster only shifts on the rare change of length, and
+     the distance, which changes length most, comes last. */
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--muted);
@@ -753,9 +794,6 @@ body.sheet-open #dock::after { opacity: 1; }
 }
 /* Without Leaflet the script stops before the first position is set. */
 #readout .when:empty::before { display: none; }
-/* Tabular figures keep each value a fixed width while its digit count
-   holds, so the cluster only shifts on the rare change of length, and
-   the distance, which changes length most, comes last. */
 
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
@@ -767,7 +805,6 @@ body.sheet-open #dock::after { opacity: 1; }
     transform: translateY(-8px);
     transition: opacity 0.25s var(--ease), transform 0.25s var(--ease), visibility 0s linear 0.25s;
   }
-  .leaflet-container .leaflet-control-attribution { font-size: 10px; }
   /* A short fade under the dock so rows scroll away under it rather than
      being cut at the hairline. */
   #stats::before {
@@ -781,15 +818,30 @@ body.sheet-open #dock::after { opacity: 1; }
     background: linear-gradient(var(--glass), transparent);
     pointer-events: none;
   }
+  /* Plus the fade under the dock. */
+  #stats { scroll-padding-top: 52px; }
 }
 /* A phone on its side: the open sheet takes nearly all the height so the
-   stats get real room, with a smaller chart and a strip of map left. */
+   stats get real room, with a smaller chart and a strip of map left. The
+   handle loses its grip and the readout moves beside the play button to
+   give the stats every row it can spare. 236px is 96 of map, the 26px
+   handle and the 114px dock; the bottom row is added as it really is, so
+   a home indicator inset never eats into the map. The floor keeps the
+   sticky header and one whole row in view on the shortest screens. */
 @media (max-width: 767px) and (max-height: 499px) {
-  :root { --sheet-open: calc(100vh - 292px); }
+  :root { --sheet-open: max(76px, calc(100vh - 236px - max(8px, env(safe-area-inset-bottom, 0px)))); }
   @supports (height: 100dvh) {
-    :root { --sheet-open: calc(100dvh - 292px); }
+    :root { --sheet-open: max(76px, calc(100dvh - 236px - max(8px, env(safe-area-inset-bottom, 0px)))); }
   }
-  #dock { grid-template-rows: 26px 64px 50px; }
+  #handle { height: 26px; }
+  #handle .grip { display: none; }
+  #handle .handle-text { padding-top: 0; }
+  #handle .chev { margin-top: 0; }
+  #dock {
+    grid-template-rows: 64px 20px 26px;
+    grid-template-areas: "chart chart" "play read" "play scrub";
+    padding-bottom: 4px;
+  }
   /* The strip of map left above the open sheet is too short for both the
      zoom buttons and the attribution; pinch still zooms. */
   body.sheet-open .leaflet-control-zoom { visibility: hidden; }
@@ -841,14 +893,13 @@ body.sheet-open #dock::after { opacity: 1; }
     border-radius: 0 0 var(--r-card) var(--r-card);
     transition: none;
   }
-  #totals { padding-top: 22px; }
+  #totals { padding-top: 24px; }
   #totals .hero dd { font-size: 52px; }
-  #days td:first-child { border-left-width: 10px; }
-  #days td:last-child { border-right-width: 10px; padding-right: calc(var(--gut) - 10px); }
-  .day-row { padding-left: calc(var(--gut) - 10px); }
+  #days td { --edge: 10px; }
   #dock {
-    grid-template-rows: 34px 104px 50px;
-    padding: 4px var(--gut) 6px;
+    grid-template-rows: 34px 104px 48px;
+    column-gap: 16px;
+    padding: 4px var(--gut) 16px;
     border-radius: var(--r-card);
     background: var(--glass);
     -webkit-backdrop-filter: var(--blur);
@@ -857,15 +908,23 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   #dock::after { display: none; }
   #play { width: 40px; height: 40px; }
-  #readout { font-size: 13px; gap: 14px; }
+  #readout { font-size: 13px; gap: 16px; }
   #readout .when { font-size: 14px; }
 }
 /* Tablet: a narrower card above a dock that runs the full width, so the
-   chart keeps a useful length. */
-@media (min-width: 768px) and (max-width: 1023px) {
+   chart keeps a useful length. Only with the height for both: on a phone
+   on its side the card would be left a sliver, so short screens take the
+   desktop arrangement below with the narrower card. */
+@media (min-width: 768px) {
+  :root { --card-w: 320px; }
+}
+@media (min-width: 1024px) {
+  :root { --card-w: 380px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) and (min-height: 600px) {
   body {
     grid-template-columns:
-      calc(var(--inset) + env(safe-area-inset-left, 0px)) 320px var(--inset)
+      calc(var(--inset) + env(safe-area-inset-left, 0px)) var(--card-w) var(--inset)
       minmax(0, 1fr) calc(var(--inset) + env(safe-area-inset-right, 0px));
     grid-template-rows:
       calc(var(--inset) + env(safe-area-inset-top, 0px)) auto minmax(0, 1fr) var(--inset) auto
@@ -874,14 +933,14 @@ body.sheet-open #dock::after { opacity: 1; }
   body::before { grid-column: 2; grid-row: 2 / 4; }
   #stats, body.sheet-open #stats { grid-row: 3; }
   #dock { grid-column: 2 / 5; grid-row: 5; }
-  .map-missing { left: calc(352px + 24px); top: 40%; }
+  .map-missing { left: calc(var(--card-w) + 2 * var(--inset) + 24px); top: 40%; }
 }
 /* Desktop: the card runs the full height and the dock floats along the
    bottom of the map to the right of it. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px), (min-width: 768px) and (max-height: 599px) {
   body {
     grid-template-columns:
-      calc(var(--inset) + env(safe-area-inset-left, 0px)) 380px var(--inset)
+      calc(var(--inset) + env(safe-area-inset-left, 0px)) var(--card-w) var(--inset)
       minmax(0, 1fr) calc(var(--inset) + env(safe-area-inset-right, 0px));
     grid-template-rows:
       calc(var(--inset) + env(safe-area-inset-top, 0px)) auto minmax(0, 1fr) auto
@@ -890,11 +949,11 @@ body.sheet-open #dock::after { opacity: 1; }
   body::before { grid-column: 2; grid-row: 2 / 5; }
   #stats, body.sheet-open #stats { grid-row: 3 / 5; }
   #dock { grid-column: 4; grid-row: 4; }
-  .map-missing { left: calc(412px + 24px); top: 45%; }
+  .map-missing { left: calc(var(--card-w) + 2 * var(--inset) + 24px); top: 45%; }
 }
 @media (min-width: 1280px) {
   :root { --inset: 20px; }
-  #dock { padding-left: 24px; padding-right: 24px; }
+  #dock { padding-left: 24px; padding-right: 24px; padding-bottom: 20px; }
 }
 @supports (animation-timeline: scroll()) {
   @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
@@ -932,6 +991,17 @@ body.sheet-open #dock::after { opacity: 1; }
   }
 }
 
+/* Forced colours paint borders in the text colour, which would turn the
+   transparent row insets into black bars, and drop the backgrounds that
+   draw the day keys and the slider track. */
+@media (forced-colors: active) {
+  #days td:first-child, #days td:last-child { border-color: Canvas; }
+  .day-row .swatch { forced-color-adjust: none; }
+  #scrub::-webkit-slider-runnable-track { background: CanvasText; }
+  #scrub::-moz-range-track { background: CanvasText; }
+  #scrub::-moz-range-progress { background: Highlight; }
+}
+
 /* Every transition and animation collapses to an instant change. 0.01ms
    rather than none so transitionend still fires after the sheet moves. */
 @media (prefers-reduced-motion: reduce) {
@@ -958,13 +1028,27 @@ body.sheet-open #dock::after { opacity: 1; }
     0 0 0 3.5px rgba(16, 24, 64, 0.14),
     0 2px 6px 2.5px rgba(0, 0, 0, 0.24);
 }
-/* Night dots are the reverse of the white start and end dots so the two
-   kinds read apart at a glance. */
+/* Night dots are dark on the light map and a quieter grey on the dark
+   one, and never the white of the start and end dots, so the two kinds
+   read apart at a glance. */
 .leaflet-pane path.night { fill: var(--night-fill); stroke: var(--night-ring); }
 
 .leaflet-container {
   background: var(--map-bg);
   font-family: inherit;
+}
+/* The map fills the viewport, so Leaflet's ring outside its box would be
+   off screen, and one inside it is painted over by the tile and route
+   panes. This one is a layer above the panes and below the controls. */
+.leaflet-container:focus-visible { outline: none; }
+.leaflet-container:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 750;
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  pointer-events: none;
 }
 .leaflet-top .leaflet-control { margin-top: calc(var(--inset) + env(safe-area-inset-top, 0px)); }
 .leaflet-right .leaflet-control { margin-right: calc(var(--inset) + env(safe-area-inset-right, 0px)); }
@@ -1146,6 +1230,8 @@ body.sheet-open #dock::after { opacity: 1; }
   // floats over the full-bleed map: the card on the left and the dock at
   // the bottom on desktop, the title pill and the sheet on a phone.
   const FIT_PAD = 36;
+  // The End pill reaches about 50px right of the last fix.
+  const END_LABEL_PAD = 56;
   const titleEl = document.getElementById('title');
   const reduceMotion = typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1157,15 +1243,24 @@ body.sheet-open #dock::after { opacity: 1; }
   // id here since this runs on load, before the consts below exist.
   // statsTo, when given, is the height in pixels the phone sheet's stats
   // are about to animate to, so a fit started with the sheet lands where
-  // the sheet will end up rather than where it is now.
+  // the sheet will end up rather than where it is now. right is how far
+  // the zoom control reaches in from the right edge, and attrib is the
+  // height the attribution adds on top of the sheet or the dock.
   let insetCache = null;
   function overlayInsets(statsTo) {
     const ahead = typeof statsTo === 'number';
     if (insetCache && !ahead) return insetCache;
-    const m = document.getElementById('map').getBoundingClientRect();
+    const mapBox = document.getElementById('map');
+    const m = mapBox.getBoundingClientRect();
     const handleEl = document.getElementById('handle');
     const statsEl = document.getElementById('stats');
-    const o = { top: 0, left: 0, bottom: 0 };
+    const o = { top: 0, left: 0, bottom: 0, right: 0, attrib: 0 };
+    const zoomEl = document.querySelector('.leaflet-control-zoom');
+    if (zoomEl && getComputedStyle(zoomEl).visibility !== 'hidden') {
+      o.right = m.right - zoomEl.getBoundingClientRect().left;
+    }
+    const attribEl = document.querySelector('.leaflet-control-attribution');
+    if (attribEl) o.attrib = attribEl.offsetHeight + 8;
     if (getComputedStyle(handleEl).display === 'none') {
       o.left = statsEl.getBoundingClientRect().right - m.left;
       o.bottom = m.bottom - document.getElementById('dock').getBoundingClientRect().top;
@@ -1175,13 +1270,16 @@ body.sheet-open #dock::after { opacity: 1; }
       // The title slides away while the sheet is open, so it only counts
       // when the sheet is closed. The class is read rather than the
       // title's visibility, which lags behind by the fade.
+      // Offsets rather than the box, which carries the 8px the title is
+      // still slid up by when the sheet starts to close.
       if (!document.body.classList.contains('sheet-open')) {
-        o.top = titleEl.getBoundingClientRect().bottom - m.top;
+        o.top = titleEl.offsetTop + titleEl.offsetHeight - mapBox.offsetTop;
       }
     }
     o.top = Math.max(0, Math.round(o.top));
     o.left = Math.max(0, Math.round(o.left));
     o.bottom = Math.max(0, Math.round(o.bottom));
+    o.right = Math.max(0, Math.round(o.right));
     if (!ahead) insetCache = o;
     return o;
   }
@@ -1192,15 +1290,23 @@ body.sheet-open #dock::after { opacity: 1; }
     // Leaflet subtracts the padding from the map size before it picks a
     // zoom, and a negative size comes out as zoom 19. So each step below
     // gives up some room until what is left is big enough to fit into.
+    // The right side clears the zoom control and the End label, which
+    // sticks out to the right of the last fix; the bottom clears the
+    // attribution, and in the tight tries half the label's height too.
+    // Dropping the title comes before ignoring the sheet, since a route
+    // under the sheet is gone and one under the title's corner is not.
+    const right = Math.max(END_LABEL_PAD, o.right + 8);
+    const bottom = o.bottom + o.attrib;
     const tries = [
-      [o.left + FIT_PAD, Math.max(FIT_PAD, o.top + 16), FIT_PAD, o.bottom + FIT_PAD],
-      [o.left + FIT_PAD, FIT_PAD, FIT_PAD, o.bottom + FIT_PAD],
-      [o.left + 8, o.top + 8, 8, o.bottom + 8],
+      [o.left + FIT_PAD, Math.max(FIT_PAD, o.top + 16), right, bottom + FIT_PAD],
+      [o.left + FIT_PAD, FIT_PAD, right, bottom + FIT_PAD],
+      [o.left + 8, o.top + 8, right, bottom + 12],
+      [o.left + 8, 8, right, bottom + 12],
       [FIT_PAD, FIT_PAD, FIT_PAD, FIT_PAD]
     ];
     for (let t = 0; t < tries.length; t++) {
       const p = tries[t];
-      if (size.x - p[0] - p[2] >= 80 && size.y - p[1] - p[3] >= 60) {
+      if (size.x - p[0] - p[2] >= 80 && size.y - p[1] - p[3] >= 40) {
         return { paddingTopLeft: [p[0], p[1]], paddingBottomRight: [p[2], p[3]] };
       }
     }
@@ -1212,35 +1318,52 @@ body.sheet-open #dock::after { opacity: 1; }
     const size = map.getSize();
     const o = overlayInsets();
     const tl = [o.left + 48, o.top + 48];
-    const br = [48, o.bottom + 48];
+    const br = [Math.max(48, o.right + 16), o.bottom + o.attrib + 48];
     if (size.x - tl[0] - br[0] < 40 || size.y - tl[1] - br[1] < 40) return { padding: [16, 16] };
     return { paddingTopLeft: tl, paddingBottomRight: br };
   }
   // Selecting a day flies there instead of jumping, unless the viewer
   // asked for less motion.
-  // A refit for the sheet uses Leaflet's quick zoom or pan instead of the
-  // fly: both ease out over about 0.3s, ahead of the 0.45s sheet, so the
-  // route clears the rising edge on every frame. The fly first eases in
-  // and the sheet would catch it.
-  function fitTo(bounds, statsTo) {
+  // A refit for the sheet, or a quick one, uses Leaflet's plain zoom or
+  // pan instead of the fly: a pan runs 0.3s and a zoom change 0.25s, both
+  // ahead of the 0.45s sheet, so the route clears the rising edge on
+  // every frame. The fly first eases in and the sheet would catch it.
+  function fitTo(bounds, statsTo, quick) {
     if (reduceMotion) {
       map.fitBounds(bounds, Object.assign({ animate: false }, fitPadding(statsTo)));
-    } else if (typeof statsTo === 'number') {
-      map.fitBounds(bounds, Object.assign({ animate: true, duration: 0.3, easeLinearity: 0.15 }, fitPadding(statsTo)));
+    } else if (quick || typeof statsTo === 'number') {
+      map.fitBounds(bounds, Object.assign({ animate: true, duration: 0.3 }, fitPadding(statsTo)));
     } else {
-      map.flyToBounds(bounds, Object.assign({ duration: 0.8, easeLinearity: 0.2 }, fitPadding(statsTo)));
+      map.flyToBounds(bounds, Object.assign({ duration: 0.8 }, fitPadding(statsTo)));
     }
   }
 
   const latlngs = TRIP.points.map(function (p) { return [p[0], p[1]]; });
   const trackBounds = L.latLngBounds(latlngs);
 
+  // Fits snap to quarter levels: with whole levels the trip on a narrow
+  // phone rounds down to a short line buried under its night dots. The
+  // buttons and keys still step a whole level.
   const map = L.map('map', {
     zoomControl: false,
+    zoomSnap: 0.25,
+    zoomDelta: 1,
+    inertia: !reduceMotion,
     zoomAnimation: !reduceMotion,
     fadeAnimation: !reduceMotion,
     markerZoomAnimation: !reduceMotion
   });
+  // Arrow keys on the map pan through panBy, which animates unless told
+  // not to, and the keyboard handler has no option for it.
+  if (reduceMotion) {
+    const panBy = map.panBy;
+    map.panBy = function (offset, opts) {
+      return panBy.call(this, offset, Object.assign({}, opts, { animate: false }));
+    };
+  }
+  // The map is the first tab stop, and Leaflet leaves it unnamed.
+  map.getContainer().setAttribute('role', 'region');
+  map.getContainer().setAttribute('aria-label', 'Map');
   // The default prefix carries an inline flag icon from the library; the
   // credit stays, as text.
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
@@ -1337,12 +1460,22 @@ body.sheet-open #dock::after { opacity: 1; }
   // Stats panel. Every number comes from the embedded JSON so the page can
   // never drift from what build.py computed and printed.
   const totals = TRIP.totals;
-  function fmtInt(n) { return n.toLocaleString('en-CA', { maximumFractionDigits: 0 }); }
+  // toLocaleString gives a hyphen, which sits low and short beside
+  // tabular figures; a true minus matches them and is read as "minus".
+  function minus(text) { return text.replace(/^-/, '\u2212'); }
+  // Adding 0 turns a rounded -0 into 0, which would otherwise print as "-0".
+  function fmtInt(n) { return minus((Math.round(n) + 0).toLocaleString('en-CA')); }
   function fmt1(n) { return n.toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
   function el(name, className, text) {
     const n = document.createElement(name);
     if (className) n.className = className;
     if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(name, attrs) {
+    const n = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs).forEach(function (k) { n.setAttribute(k, String(attrs[k])); });
     return n;
   }
 
@@ -1372,14 +1505,8 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   // An arrow pointing up and out of the card: it goes somewhere else.
   function goIcon() {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'go');
-    svg.setAttribute('viewBox', '0 0 14 14');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M4.2 9.8 9.6 4.4M5.4 4.2h4.4v4.4');
-    svg.appendChild(path);
+    const svg = svgEl('svg', { class: 'go', viewBox: '0 0 14 14', 'aria-hidden': 'true', focusable: 'false' });
+    svg.appendChild(svgEl('path', { d: 'M4.2 9.8 9.6 4.4M5.4 4.2h4.4v4.4' }));
     return svg;
   }
   const totalsEl = document.getElementById('totals');
@@ -1463,14 +1590,8 @@ body.sheet-open #dock::after { opacity: 1; }
   const CARET_UP = 'M4 1.5 7.5 6.5H.5z';
   const CARET_DOWN = 'M4 6.5 7.5 1.5H.5z';
   headers.forEach(function (th) {
-    const caret = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    caret.setAttribute('class', 'caret');
-    caret.setAttribute('viewBox', '0 0 8 8');
-    caret.setAttribute('aria-hidden', 'true');
-    caret.setAttribute('focusable', 'false');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', CARET_UP);
-    caret.appendChild(path);
+    const caret = svgEl('svg', { class: 'caret', viewBox: '0 0 8 8', 'aria-hidden': 'true', focusable: 'false' });
+    caret.appendChild(svgEl('path', { d: CARET_UP }));
     th.firstElementChild.appendChild(caret);
   });
   let sortKey = null;
@@ -1550,6 +1671,16 @@ body.sheet-open #dock::after { opacity: 1; }
       // selected along with the label.
       trs[i].classList.toggle('selected', i === selectedDay);
     });
+    // A stop belongs to the day that ended there and to each day that
+    // started there, one per night (the trip has a day for every date);
+    // the rest fade with their lines, or the dots on pale lines would be
+    // the loudest marks left outside the selected day.
+    nightDots.forEach(function (dot, k) {
+      const spot = TRIP.nights[k];
+      const from = points[spot.idx][5];
+      const lit = selectedDay === null || (selectedDay >= from && selectedDay <= from + spot.nights);
+      dot.setStyle({ opacity: lit ? 1 : FADED_OPACITY, fillOpacity: lit ? 1 : FADED_OPACITY });
+    });
     fadeChart();
     revealSelected();
     fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
@@ -1585,10 +1716,11 @@ body.sheet-open #dock::after { opacity: 1; }
   // sheet rises instead of the route vanishing under it first.
   const handle = document.getElementById('handle');
   const sheetProbe = document.getElementById('sheet-probe');
+  function viewBounds() { return selectedDay === null ? trackBounds : dayBounds[selectedDay]; }
   handle.addEventListener('click', function () {
     const open = document.body.classList.toggle('sheet-open');
     handle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay], open ? sheetProbe.offsetHeight : 0);
+    fitTo(viewBounds(), open ? sheetProbe.offsetHeight : 0);
   });
 
   // The map fills the window, so it changes size on resize and rotation;
@@ -1612,13 +1744,45 @@ body.sheet-open #dock::after { opacity: 1; }
     window.addEventListener('resize', function () { map.invalidateSize(); panelsMoved(); });
   }
   panelsMoved();
-  // The fit already happened when the sheet started to move; at the end
-  // only the cached insets and the selected row need to catch up.
+  // The fit already happened when the sheet started to move, and this one
+  // is usually a pan of nothing. It is there for a second tap inside the
+  // first fit's zoom: Leaflet drops a fit asked for mid zoom, and the
+  // view would stay fitted for the sheet state before.
   document.getElementById('stats').addEventListener('transitionend', function (e) {
     if (e.propertyName !== 'height') return;
     panelsMoved();
     revealSelected();
+    fitTo(viewBounds(), undefined, true);
   });
+
+  // The map keeps its size when the panels move between layouts, so a
+  // rotation or a resize across a breakpoint would leave the route under
+  // the card or the sheet, or off screen. A change of layout refits at
+  // once. One frame gathers the queries that change together.
+  let layoutFrame = 0;
+  function layoutChanged() {
+    if (layoutFrame) return;
+    layoutFrame = requestAnimationFrame(function () {
+      layoutFrame = 0;
+      insetCache = null;
+      map.invalidateSize({ pan: false });
+      // On a phone the sheet may be moving to a new open height, so the
+      // fit aims at the height it will settle on.
+      let statsTo;
+      if (getComputedStyle(handle).display !== 'none') {
+        statsTo = document.body.classList.contains('sheet-open') ? sheetProbe.offsetHeight : 0;
+      }
+      map.fitBounds(viewBounds(), Object.assign({ animate: false }, fitPadding(statsTo)));
+    });
+  }
+  if (typeof window.matchMedia === 'function') {
+    ['(min-width: 768px)', '(min-width: 1024px)', '(max-height: 499px)', '(max-height: 599px)', '(orientation: landscape)']
+      .forEach(function (q) {
+        const mq = window.matchMedia(q);
+        if (mq.addEventListener) mq.addEventListener('change', layoutChanged);
+        else if (mq.addListener) mq.addListener(layoutChanged);
+      });
+  }
 
   // Scrubber. Every change of position goes through setIndex so the map
   // marker, the slider, the readout and the chart cursor cannot disagree.
@@ -1631,7 +1795,9 @@ body.sheet-open #dock::after { opacity: 1; }
   const readWhen = document.getElementById('readout-when');
   const readEle = document.getElementById('readout-ele');
   const readKm = document.getElementById('readout-km');
-  slider.max = String(LAST);
+  // The slider runs on the chart's scale, kilometres, so its thumb and
+  // the chart cursor above it stay together along the whole trip.
+  slider.max = String(Math.round(totals.km));
 
   // A pane of its own keeps the marker above the day lines and the start
   // and end dots, which all share the overlay pane, and below the tooltips.
@@ -1651,10 +1817,22 @@ body.sheet-open #dock::after { opacity: 1; }
   // Smaller at trip zoom, where thirty of them crowd the line between
   // Ontario and the coast; full size once there is room around them.
   function nightRadius() { return map.getZoom() < 6 ? 3.5 : 4.5; }
+  // Leaflet's SVG renderer rounds a circle's radius to whole pixels, which
+  // drew 3.5 and 4.5 as 4 and 5. The dots get a renderer of their own that
+  // keeps the half pixel; the same two half arcs, without the rounding.
+  const nightRenderer = L.svg({ pane: 'nights' });
+  nightRenderer._updateCircle = function (layer) {
+    const p = layer._point;
+    const r = layer._radius;
+    const arc = 'a' + r + ',' + r + ' 0 1,0 ';
+    this._setPath(layer, layer._empty() ? 'M0 0'
+      : 'M' + (p.x - r) + ',' + p.y + arc + (r * 2) + ',0 ' + arc + (-r * 2) + ',0 ');
+  };
   const nightDots = [];
   TRIP.nights.forEach(function (spot) {
     const dot = L.circleMarker([spot.lat, spot.lon], {
-      pane: 'nights', className: 'night', radius: nightRadius(), weight: 2, opacity: 1, fillOpacity: 1
+      pane: 'nights', renderer: nightRenderer, className: 'night',
+      radius: nightRadius(), weight: 2, opacity: 1, fillOpacity: 1
     });
     nightDots.push(dot);
     let text = spot.nights === 1
@@ -1688,10 +1866,11 @@ body.sheet-open #dock::after { opacity: 1; }
     trackEl.style.background = day.color;
     readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
     readWhen.style.setProperty('--day', day.color);
-    slider.style.setProperty('--pct', (LAST ? i / LAST * 100 : 0).toFixed(2) + '%');
-    readEle.textContent = Math.round(p[2]).toLocaleString('en-CA') + ' m';
+    const atKm = source === 'slider' ? Number(slider.value) : p[4];
+    slider.style.setProperty('--pct', (atKm / totals.km * 100).toFixed(2) + '%');
+    readEle.textContent = fmtInt(p[2]) + ' m';
     readKm.textContent = p[4].toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km';
-    if (source !== 'slider') slider.value = String(i);
+    if (source !== 'slider') slider.value = String(Math.round(p[4]));
     moveCursor(i);
     // On load the map was just fitted to the whole track; a pan here would
     // nudge that fit by the difference between the two paddings. The pan
@@ -1722,25 +1901,28 @@ body.sheet-open #dock::after { opacity: 1; }
   playBtn.addEventListener('click', function () {
     if (timer === null) startPlay(); else stopPlay();
   });
-  slider.addEventListener('input', function () { setIndex(Number(slider.value), 'slider'); });
+  slider.addEventListener('input', function () { setIndex(nearestIndex(Number(slider.value)), 'slider'); });
+  // A kilometre per arrow press would take several presses to reach the
+  // next fix, so the arrows step one fix instead.
+  slider.addEventListener('keydown', function (e) {
+    const step = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    setIndex(current + step, 'key');
+  });
 
   // The chart viewBox is in CSS pixels so stroke widths and the 10px
   // labels stay the same size at every dock width. No right padding: the
-  // plot ends where the slider ends, on the dock's own gutter.
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  const PAD = { left: 36, right: 0, top: 8, bottom: 18 };
+  // grid ends where the slider ends, on the dock's own gutter.
+  const PAD = { left: 36, top: 8, bottom: 18 };
+  // The slider thumb's width; its centre travels half of it in from each end.
+  const THUMB_PX = 22;
   const Y_STEPS = [100, 200, 250, 500, 1000];
   // GPS noise at lake level puts the floor a few metres below sea level.
   const SEA_NOISE_M = 20;
-  // Labels like "12,000 km" need about 70px each, so a narrow dock (a
-  // small phone, or a tablet beside the card) takes every other tick.
+  // Labels like "12,000 km" need about 70px each, so a narrow dock on a
+  // small phone takes every other tick.
   function xStepKm(plotW) { return plotW < 380 ? 4000 : 2000; }
-
-  function svgEl(name, attrs) {
-    const n = document.createElementNS(SVG_NS, name);
-    Object.keys(attrs).forEach(function (k) { n.setAttribute(k, String(attrs[k])); });
-    return n;
-  }
 
   let eleMin = Infinity;
   let eleMax = -Infinity;
@@ -1748,10 +1930,13 @@ body.sheet-open #dock::after { opacity: 1; }
     if (p[2] < eleMin) eleMin = p[2];
     if (p[2] > eleMax) eleMax = p[2];
   });
-  // The domain rounds out to the first step that gives 3 to 5 ticks. A
-  // floor within the noise band below sea level snaps to 0 instead of to
-  // a tick a whole step further down, whatever the step.
-  function yDomain() {
+  // The domain rounds out to the first step that gives at least 3 ticks
+  // and no more than the plot has height for: 10px labels need about 18px
+  // each, so a short phone chart gets 0, 1,000 and 2,000 m where the
+  // desktop gets every 500. A floor within the noise band below sea level
+  // snaps to 0 instead of to a tick a whole step further down.
+  function yDomain(plotH) {
+    const most = Math.max(2, Math.floor(plotH / 18));
     let fit = null;
     for (let s = 0; s < Y_STEPS.length; s++) {
       const step = Y_STEPS[s];
@@ -1759,12 +1944,11 @@ body.sheet-open #dock::after { opacity: 1; }
       if (lo < 0 && eleMin > -SEA_NOISE_M) lo = 0;
       const hi = Math.ceil(eleMax / step) * step;
       fit = { lo: lo, hi: hi, step: step };
-      const n = (hi - lo) / step + 1;
-      if (n >= 3 && n <= 5) break;
+      const spans = (hi - lo) / step;
+      if (spans >= 2 && spans <= most) break;
     }
     return fit;
   }
-  const yDom = yDomain();
 
   let scale = null;
   let cursorLine = null;
@@ -1816,9 +2000,11 @@ body.sheet-open #dock::after { opacity: 1; }
     while (chart.firstChild) chart.removeChild(chart.firstChild);
     chart.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
+    const plotH = H - PAD.top - PAD.bottom;
+    const yDom = yDomain(plotH);
     const yTicks = [];
     for (let v = yDom.lo; v <= yDom.hi; v += yDom.step) {
-      yTicks.push({ v: v, text: v.toLocaleString('en-CA') + (v === yDom.hi ? ' m' : '') });
+      yTicks.push({ v: v, text: fmtInt(v) + (v === yDom.hi ? ' m' : '') });
     }
     // The left margin grows past 36px only when the labels need it, which
     // the unit on the top label can force with a wide system font.
@@ -1831,8 +2017,15 @@ body.sheet-open #dock::after { opacity: 1; }
     });
     chart.removeChild(probe);
 
-    const plotW = W - left - PAD.right;
-    const plotH = H - PAD.top - PAD.bottom;
+    // The data runs between the two ends of the slider thumb's travel, half
+    // a thumb in from each end of the slider, so the cursor and the thumb
+    // sit on one line. The grid still runs to the dock's gutter.
+    const cr = chart.getBoundingClientRect();
+    const sr = slider.getBoundingClientRect();
+    const thumbHalf = THUMB_PX / 2;
+    if (sr.width > THUMB_PX) left = Math.max(left, Math.round(sr.left - cr.left + thumbHalf));
+    const plotRight = sr.width > THUMB_PX ? Math.round(sr.right - cr.left - thumbHalf) : W;
+    const plotW = plotRight - left;
     const x = function (km) { return left + plotW * km / totals.km; };
     const y = function (m) { return PAD.top + plotH * (yDom.hi - m) / (yDom.hi - yDom.lo); };
     scale = { x: x, y: y, left: left, plotW: plotW };
@@ -1841,7 +2034,7 @@ body.sheet-open #dock::after { opacity: 1; }
     yTicks.forEach(function (t) {
       // Half pixel offset so the 1px line lands on one row of pixels.
       const gy = Math.round(y(t.v)) + 0.5;
-      grid.appendChild(svgEl('line', { x1: left, x2: left + plotW, y1: gy, y2: gy }));
+      grid.appendChild(svgEl('line', { x1: left, x2: W, y1: gy, y2: gy }));
       const label = svgEl('text', { x: left - 6, y: gy, dy: '0.35em', 'text-anchor': 'end' });
       label.textContent = t.text;
       grid.appendChild(label);
@@ -1852,6 +2045,9 @@ body.sheet-open #dock::after { opacity: 1; }
     for (let km = 0; km <= totals.km; km += X_STEP_KM) {
       const gx = Math.round(x(km)) + 0.5;
       grid.appendChild(svgEl('line', { class: 'tick', x1: gx, x2: gx, y1: bottom, y2: bottom + 3 }));
+      // The origin keeps its tick but not a label: the 0 m beside it
+      // already marks the corner, and two zeros there read as one blur.
+      if (km === 0) continue;
       const label = svgEl('text', { x: gx, y: H - 5, 'text-anchor': 'middle' });
       label.textContent = km.toLocaleString('en-CA') + (km + X_STEP_KM > totals.km ? ' km' : '');
       grid.appendChild(label);
@@ -1886,7 +2082,7 @@ body.sheet-open #dock::after { opacity: 1; }
         area += d + 'L' + x(points[seg[1]][4]).toFixed(1) + ' ' + floorY + 'L' + x(points[seg[0]][4]).toFixed(1) + ' ' + floorY + 'Z';
       });
       if (line) {
-        g.appendChild(svgEl('path', { class: 'area', d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
+        g.appendChild(svgEl('path', { d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
         g.appendChild(svgEl('path', {
           d: line, fill: 'none', stroke: day.color, 'stroke-width': 2,
           'stroke-linejoin': 'round', 'stroke-linecap': 'round'
@@ -1906,7 +2102,7 @@ body.sheet-open #dock::after { opacity: 1; }
 
     // A transparent rect over the plot takes the pointer so the paths and
     // labels underneath never swallow a move or a tap.
-    const hit = svgEl('rect', { x: left, y: PAD.top, width: plotW, height: plotH, fill: 'transparent' });
+    const hit = svgEl('rect', { x: left, y: PAD.top, width: W - left, height: plotH, fill: 'transparent' });
     hit.addEventListener('pointerdown', function (e) {
       pressed = true;
       if (hit.setPointerCapture) hit.setPointerCapture(e.pointerId);
