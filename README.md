@@ -6,7 +6,7 @@ A map of the drive from Markham to British Columbia and back, Sep 5 to Oct 8, 20
 
     python build.py
 
-That reads data/inreach-sep-oct-2026.gpx, prints a table of days and the trip totals, and writes docs/index.html with the stats and every point left after the trim embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--odometer-km` (default 12613.7, 0 to skip), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title and the data.
+That reads data/inreach-sep-oct-2026.gpx, prints a table of days, the trip totals, the province visits and the records, and writes docs/index.html with the stats and every point left after the trim embedded as JSON. Python 3.8 or newer, standard library only. The flags are `--trim-home-km` (default 1.5), `--odometer-km` (default 12613.7, 0 to skip), `--title`, `--gpx`, `--template` and `--out`. The page is template.html; build.py swaps in the title and the data.
 
 ## Deploy
 
@@ -18,9 +18,11 @@ Distance is haversine between consecutive fixes, scaled so the total matches the
 
 Any silence over 6 h is a gap. The line breaks there and the distance between the two fixes is not counted. There are four. build.py prints each one; the page only breaks the line there.
 
-Time in each province adds up the time between fixes by which side of the border each fix sits on. The borders are drawn the simple way: the Ontario line west of Kenora, the Manitoba line stepping west as it goes north, the 110th meridian for Alberta, and for BC the 120th meridian in the Peace country and a line through the mountain passes south of it. A crossing can be off by a few kilometres, so the hours are good to about the hour.
+Time in each province adds up the time between fixes by which side of the border each fix sits on. The visits are the same hours split wherever the track crossed a border, so the page can show them in order: Ontario, Manitoba, Saskatchewan, Alberta, BC and back. The borders are drawn the simple way: the Ontario line west of Kenora, the Manitoba line stepping west as it goes north, the 110th meridian for Alberta, and for BC the 120th meridian in the Peace country and a line through the mountain passes south of it. A crossing can be off by a few kilometres, so the hours are good to about the hour.
 
-Days are America/Toronto dates. The trip crossed into Central, Mountain and Pacific time, so a day in the table is a Toronto calendar day even where the clock on the dash said something else. That is a deliberate simplification; one clock keeps the table honest about calendar days at home.
+A day's start and finish are when its driving began and ended, not its first and last fix, since a night at a campsite logs fixes past midnight. Moving steps with less than 6 h between them count as one drive, and a day runs from the first drive that starts on it to the end of its last one. A drive under half an hour is the fix jumping at a stop and does not start a day. The records (longest and shortest day, most time moving, most climbing, earliest start, latest finish, most nights in one place) come from the same numbers; speeds are left out because a fix every ten minutes makes them say more about the gaps than the driving.
+
+Days are America/Toronto dates. The trip crossed into Central, Mountain and Pacific time, so a day in the table is a Toronto calendar day even where the clock on the dash said something else. That is a deliberate simplification; one clock keeps the table honest about calendar days at home. An evening drive in BC ends after midnight Toronto time, and the page says next day there.
 
 After the 1.5 km trim the start and end are 2.8 km apart, not 1.5 km. The first surviving fix is already 6.9 km from home and the last one is 5.1 km out, because the device logged every 10 minutes and I was on the highway. The threshold stayed at 1.5 km.
 
