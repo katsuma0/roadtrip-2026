@@ -741,6 +741,44 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 
 /* Day table. Separate borders, not collapsed ones, because a collapsed
    border on a sticky header scrolls away with the rows in Chrome. */
+/* The table opens on the first week; the rest is one tap away. Rows past
+   the seventh in the current sort order are taken out of the layout. */
+#days.collapsed tbody tr:nth-child(n+8) { display: none; }
+.more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 40px);
+  height: 40px;
+  margin: 12px auto 4px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+@media (hover: hover) {
+  .more:hover { background: var(--accent-soft); border-color: transparent; }
+}
+.more:active { transform: scale(0.96); }
+.more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.more svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.3s var(--ease);
+}
+.more[aria-expanded="true"] svg { transform: rotate(180deg); }
 #days {
   width: 100%;
   border-collapse: separate;
@@ -1124,6 +1162,13 @@ body.sheet-open #dock::after { opacity: 1; }
 #chart .cursor.ease circle { transition: transform 0.18s var(--ease); }
 /* Zoomed to a day, a position outside it has no place on the chart. */
 #chart .cursor.out { opacity: 0; }
+/* The hover guide is quieter than the cursor: it is a preview, not the place. */
+#chart .hover-guide { opacity: 0; pointer-events: none; transition: opacity 0.15s var(--ease); }
+#chart .hover-guide.on { opacity: 1; }
+#chart .hover-guide line { stroke: var(--text); stroke-opacity: 0.22; stroke-width: 1; stroke-dasharray: 3 3; }
+#chart .hover-guide rect { fill: var(--surface); stroke: var(--hairline); }
+#chart .hover-guide text { fill: var(--text); font-size: 11px; font-weight: 600; }
+#chart .hover-guide .v { fill: var(--muted); font-weight: 500; }
 #chart .day { transition: opacity 0.2s var(--ease); }
 #play {
   grid-area: play;
@@ -1750,7 +1795,8 @@ body.sheet-open #dock::after { opacity: 1; }
     <dl id="record-list"></dl>
   </section>
   <h2 id="days-head" class="section-head">Days</h2>
-  <table id="days" aria-labelledby="days-head">
+  <div id="days-wrap">
+  <table id="days" class="collapsed" aria-labelledby="days-head">
     <thead>
       <tr>
         <th scope="col"><button type="button" data-sort="date">Day</button></th>
@@ -1761,6 +1807,11 @@ body.sheet-open #dock::after { opacity: 1; }
     </thead>
     <tbody id="day-rows"></tbody>
   </table>
+  </div>
+  <button id="days-more" type="button" class="more" aria-expanded="false" aria-controls="days">
+    <span class="more-text"></span>
+    <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3 4.5 6 7.5 9 4.5"></path></svg>
+  </button>
   <section id="provinces" aria-labelledby="provinces-head">
     <h2 id="provinces-head" class="section-head">Time in each province</h2>
     <div id="prov-timeline" class="timeline" role="group" aria-label="Visits in order"></div>
@@ -2476,6 +2527,54 @@ body.sheet-open #dock::after { opacity: 1; }
   function sortValue(d) {
     return sortKey === 'date' ? d : TRIP.days[d][sortKey];
   }
+  // The first week shows by default. Opening and closing animate the
+  // wrapper's height; the newly shown rows rise in one after another.
+  const daysTable = document.getElementById('days');
+  const daysWrap = document.getElementById('days-wrap');
+  const moreBtn = document.getElementById('days-more');
+  const moreText = moreBtn.querySelector('.more-text');
+  const FIRST_WEEK = 7;
+  let daysOpen = false;
+  let daysAnim = null;
+  function labelMore() {
+    moreText.textContent = daysOpen ? 'Show the first week' : 'Show all ' + TRIP.days.length + ' days';
+  }
+  labelMore();
+  moreBtn.hidden = TRIP.days.length <= FIRST_WEEK;
+  function setDaysOpen(open, animate) {
+    if (open === daysOpen) return;
+    if (daysAnim) { daysAnim.cancel(); daysAnim = null; }
+    const from = daysWrap.offsetHeight;
+    daysTable.classList.toggle('collapsed', !open);
+    const to = daysWrap.offsetHeight;
+    daysOpen = open;
+    moreBtn.setAttribute('aria-expanded', String(open));
+    labelMore();
+    if (!animate || !canAnimate || from === to) return;
+    // Closing keeps the rows until the height has run down to them, so the
+    // list folds away instead of vanishing and leaving a gap to close.
+    if (!open) daysTable.classList.remove('collapsed');
+    daysWrap.style.overflow = 'hidden';
+    holdMotion('days', 420);
+    daysAnim = daysWrap.animate([{ height: from + 'px' }, { height: to + 'px' }],
+      { duration: 380, easing: EASE_UI });
+    daysAnim.onfinish = daysAnim.oncancel = function () {
+      daysWrap.style.overflow = '';
+      if (!daysOpen) daysTable.classList.add('collapsed');
+      daysAnim = null;
+    };
+    if (open) {
+      Array.prototype.slice.call(tbody.children, FIRST_WEEK).forEach(function (tr, k) {
+        tr.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
+          { duration: 260, delay: Math.min(k, 12) * 18, easing: EASE_UI, fill: 'backwards' });
+      });
+    } else {
+      // Keep the button where the eye is: the list shrinks above it.
+      moreBtn.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+  }
+  moreBtn.addEventListener('click', function () { setDaysOpen(!daysOpen, true); });
+
   function sortRows(key) {
     if (key === sortKey) {
       sortDir = sortDir === 'ascending' ? 'descending' : 'ascending';
@@ -2638,6 +2737,12 @@ body.sheet-open #dock::after { opacity: 1; }
   // call this as well.
   function revealSelected() {
     const stats = document.getElementById('stats');
+    // A day picked from the map, the chart or a record may sit past the
+    // first week; the list opens so its row can be shown.
+    if (selectedDay !== null && !daysOpen && tbody.children.length > FIRST_WEEK &&
+        Array.prototype.indexOf.call(tbody.children, trs[selectedDay]) >= FIRST_WEEK) {
+      setDaysOpen(true, false);
+    }
     if (selectedDay === null || stats.clientHeight === 0) return;
     const row = trs[selectedDay].getBoundingClientRect();
     const box = stats.getBoundingClientRect();
@@ -3621,6 +3726,37 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   let xDom = fullDom();
 
+  // The hover guide: where the marker would go on a click, with the time
+  // and reading there. Built per render, hidden until a mouse is over.
+  let hoverGroup = null;
+  let hoverBox = null;
+  let hoverText = null;
+  function showHover(i) {
+    if (!scale || !hoverGroup) return;
+    const p = points[i];
+    const x = Number(scale.x(p[4]).toFixed(1));
+    const wx = TRIP.wx && TRIP.wx[i];
+    // Separate spans because SVG text collapses runs of spaces.
+    while (hoverText.firstChild) hoverText.removeChild(hoverText.firstChild);
+    [TRIP.days[p[5]].label + ', ' + fmtTime.format(new Date(p[3] * 1000)), fmtInt(p[2]) + ' m']
+      .concat(wx ? [Math.round(wx[0]) + ' \u00b0C'] : []).forEach(function (part, k) {
+        const span = svgEl('tspan', k ? { dx: 8, class: 'v' } : {});
+        span.textContent = part;
+        hoverText.appendChild(span);
+      });
+    hoverGroup.firstChild.setAttribute('x1', x);
+    hoverGroup.firstChild.setAttribute('x2', x);
+    const w = hoverText.getComputedTextLength() + 16;
+    // The label sits beside the line, on whichever side has room.
+    const lx = x + 8 + w > scale.W ? x - 8 - w : x + 8;
+    hoverBox.setAttribute('x', lx.toFixed(1));
+    hoverBox.setAttribute('width', w.toFixed(1));
+    hoverText.setAttribute('x', (lx + 8).toFixed(1));
+    hoverGroup.classList.add('on');
+  }
+  function hideHover() {
+    if (hoverGroup) hoverGroup.classList.remove('on');
+  }
   function indexAtClientX(clientX) {
     const r = chart.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (clientX - r.left - scale.left) / scale.plotW));
@@ -3933,14 +4069,24 @@ body.sheet-open #dock::after { opacity: 1; }
       setIndex(indexAtClientX(e.clientX), 'chart');
     });
     hit.addEventListener('pointermove', function (e) {
-      // A finger only scrubs while it is down; a mouse scrubs on hover.
-      if (e.pointerType === 'mouse' || pressed) setIndex(indexAtClientX(e.clientX), 'chart');
+      // Only a press moves the marker, so hovering while it plays leaves
+      // it alone; a mouse gets a guide line and a label instead.
+      if (pressed) setIndex(indexAtClientX(e.clientX), 'chart');
+      else if (e.pointerType === 'mouse') showHover(indexAtClientX(e.clientX));
     });
     hit.addEventListener('pointerup', function () { pressed = false; });
     hit.addEventListener('pointercancel', function () { pressed = false; });
+    hit.addEventListener('pointerleave', hideHover);
     // A scrub rewrites the readout and the cursor on every move.
     hit.addEventListener('pointerenter', function () { motion('scrub', true); });
     hit.addEventListener('pointerleave', function () { motion('scrub', false); });
+    hoverGroup = svgEl('g', { class: 'hover-guide' });
+    hoverGroup.appendChild(svgEl('line', { x1: 0, x2: 0, y1: PAD.top, y2: PAD.top + plotH }));
+    hoverBox = svgEl('rect', { rx: 6, ry: 6, height: 20, y: PAD.top });
+    hoverText = svgEl('text', { y: PAD.top + 14 });
+    hoverGroup.appendChild(hoverBox);
+    hoverGroup.appendChild(hoverText);
+    chart.appendChild(hoverGroup);
     chart.appendChild(hit);
 
     fadeChart();
