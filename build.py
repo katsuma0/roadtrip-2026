@@ -45,9 +45,13 @@ ELEV_THRESHOLD_M = 10.0
 # A stay is a run of fixes that never leaves this radius of its first fix.
 # One that lasts this long and spans three in the morning at home is a
 # night. Three is late enough to be night in BC too, where it is midnight.
+# A stop this long also splits the moving steps into drives.
 STAY_RADIUS_M = 300.0
 STAY_MIN_H = 6.0
 NIGHT_HOUR = 3
+# A drive shorter than this is the fix jumping at a stop, so it does not
+# count as the start of a day.
+MIN_DRIVE_H = 0.5
 
 # Province borders, simplified to where the road crosses them. The prairie
 # borders are a meridian each, the Ontario line is the one west of Kenora,
@@ -77,6 +81,9 @@ ODOMETER_KM = 12613.7
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# Spelled out rather than strftime("%a"), which follows the machine's
+# locale and would put another language on the page.
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 class Eastern(tzinfo):
@@ -279,7 +286,9 @@ def time_by_province(pts, steps):
 
 
 def find_nights(pts):
-    """One entry per spot slept at, with how many nights in a row."""
+    """One entry per spot slept at, with how many nights in a row, and
+    the first and last date of each, which the days use to find the spot
+    they ended at."""
     n = len(pts)
     stays = []
     i = 0
@@ -327,7 +336,83 @@ def find_nights(pts):
         "from_label": day_label(sp["from"]),
         "to_label": day_label(sp["to"]),
         "off": sp["off"],
-    } for sp in spots]
+    } for sp in spots], [(sp["from"], sp["to"]) for sp in spots]
+
+
+def province_visits(pts, steps):
+    """Each stretch spent in one province without leaving it, in order.
+    A visit's hours count the steps that start inside it, the same rule
+    time_by_province uses, so the visits of a province add up to its total."""
+    names = dict(PROVINCES)
+    visits = []
+    for i, p in enumerate(pts):
+        code = province(p["lat"], p["lon"])
+        if not visits or visits[-1]["code"] != code:
+            visits.append({"code": code, "name": names[code], "from_idx": i, "to_idx": i, "hours": 0.0})
+        visits[-1]["to_idx"] = i
+        if i < len(steps):
+            visits[-1]["hours"] += steps[i]["dt_h"]
+    for v in visits:
+        v["hours"] = round(v["hours"], 1)
+    return visits
+
+
+def minutes_after(midnight, t):
+    """Minutes from a day's midnight, unrounded, so two days whose start or
+    finish reads the same on the clock still have one that came first."""
+    return (t - midnight).total_seconds() / 60.0
+
+
+def find_records(days, nights, spans, dates, starts, ends, own, tz):
+    """The days that stand out, plus the longest stay. Ties go to the
+    earlier day. Speeds are left out: from a fix every ten minutes they
+    say more about the gaps between fixes than about the driving."""
+    def pick(candidates, key, largest=True):
+        best = None
+        for d in candidates:
+            if best is None or (key(d) > key(best) if largest else key(d) < key(best)):
+                best = d
+        return best
+
+    moving = [d for d in range(len(days)) if starts[d] is not None]
+    # Start and finish only count for days with a drive of their own, so
+    # the end of the drive home at midnight is not the earliest start.
+    driven = [d for d in moving if own[d]]
+    midnight = [datetime(dt.year, dt.month, dt.day, tzinfo=tz) for dt in dates]
+    out = []
+
+    def add(key, label, value_text, day=None, idx=None):
+        out.append({"key": key, "label": label, "value_text": value_text, "day": day, "idx": idx})
+
+    # A track with no driving or no night stop has nothing to pick for some
+    # of these, and the page draws whichever records there are, so those
+    # are left out rather than stopping the build.
+    d = pick(moving, lambda d: days[d]["km"])
+    if d is not None:
+        add("longest_day", "Longest day", "%s km" % format(days[d]["km"], ",.1f"), d)
+    d = pick(moving, lambda d: days[d]["moving_h"])
+    if d is not None:
+        add("longest_wheel", "Longest at the wheel", "%.1f h" % days[d]["moving_h"], d)
+    d = pick(moving, lambda d: days[d]["gain_m"])
+    if d is not None:
+        add("most_climbing", "Most climbing", "%s m" % format(days[d]["gain_m"], ",d"), d)
+    # Picked on the exact minutes, so wall clock rounding cannot tie two.
+    d = pick(driven, lambda d: minutes_after(midnight[d], starts[d]), largest=False)
+    if d is not None:
+        add("earliest_start", "Earliest start", hhmm(starts[d]), d)
+    d = pick(driven, lambda d: minutes_after(midnight[d], ends[d]))
+    if d is not None:
+        add("latest_finish", "Latest finish", hhmm(ends[d]), d)
+    d = pick(moving, lambda d: days[d]["km"], largest=False)
+    if d is not None:
+        add("shortest_day", "Shortest day", "%s km" % format(days[d]["km"], ",.1f"), d)
+    # The first date of the stay is the day that ended there.
+    k = pick(range(len(nights)), lambda k: nights[k]["nights"])
+    if k is not None:
+        day_of = {dt: i for i, dt in enumerate(dates)}
+        add("most_nights", "Most nights in one place", "%d nights" % nights[k]["nights"],
+            day_of.get(spans[k][0]), nights[k]["idx"])
+    return out
 
 
 def compute(pts, tz, odometer_km=ODOMETER_KM):
@@ -456,6 +541,63 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
         day["gain_m"] = int(round(day["gain_m"]))
         day["loss_m"] = int(round(day["loss_m"]))
         day["color"] = colours[di]
+        day["weekday"] = WEEKDAYS[dates[di].weekday()]
+
+    # When each day's driving started and stopped, as its first and last
+    # moving step on that Toronto date. Not the first and last fix, since a
+    # night stay carries fixes past midnight. Moving steps are joined into
+    # drives wherever the car stopped for less than a night, and only a
+    # drive of half an hour or more counts: a few minutes of "driving" at a
+    # campsite at night is the fix jumping. A day starts with the first
+    # drive that starts on it, so an evening in BC that runs past midnight
+    # Toronto time does not start the next day at 00:16. A day finishes at
+    # the last fix on its own date that one of those drives touched, so the
+    # times cover the same date as the day's km and two days never claim
+    # the same hours. A day with no drive of its own (the end of the drive
+    # home) falls back to its plain moving steps.
+    drives = []
+    for i, s in enumerate(steps):
+        if not s["moving"]:
+            continue
+        if drives and (pts[i]["t"] - pts[drives[-1][1] + 1]["t"]).total_seconds() < STAY_MIN_H * 3600:
+            drives[-1][1] = i
+        else:
+            drives.append([i, i])
+    starts = [None] * len(days)
+    ends = [None] * len(days)
+    own = [False] * len(days)
+    in_drive = [False] * len(steps)
+    for a, b in drives:
+        if (pts[b + 1]["t"] - pts[a]["t"]).total_seconds() < MIN_DRIVE_H * 3600:
+            continue
+        for i in range(a, b + 1):
+            in_drive[i] = steps[i]["moving"]
+        d = pts[a]["day"]
+        if starts[d] is None:
+            starts[d] = pts[a]["local"]
+        own[d] = True
+    for i, s in enumerate(steps):
+        d = pts[i]["day"]
+        if not (in_drive[i] if own[d] else s["moving"]):
+            continue
+        if starts[d] is None:
+            starts[d] = pts[i]["local"]
+        # A step across midnight counts towards this day's km but ends on
+        # the next date; its first fix is the last one this day has.
+        ends[d] = pts[i + 1]["local"] if pts[i + 1]["day"] == d else pts[i]["local"]
+    for di, day in enumerate(days):
+        day["start_local"] = hhmm(starts[di]) if starts[di] is not None else None
+        day["end_local"] = hhmm(ends[di]) if ends[di] is not None else None
+        # Provinces in the order the day passed through them. A day that
+        # crosses a border and comes back lists the first one twice.
+        codes = []
+        for i in range(n):
+            if pts[i]["day"] != di:
+                continue
+            code = province(pts[i]["lat"], pts[i]["lon"])
+            if not codes or codes[-1] != code:
+                codes.append(code)
+        day["provinces"] = codes
 
     hi = max(range(n), key=lambda i: pts[i]["ele_s"])
     lo = min(range(n), key=lambda i: pts[i]["ele_s"])
@@ -487,28 +629,38 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
                int(p["t"].timestamp()), round(c / 1000.0, 2), p["day"]]
               for p, c in zip(pts, cum)]
 
-    nights = find_nights(pts)
+    nights, spans = find_nights(pts)
     totals["nights"] = sum(sp["nights"] for sp in nights)
     totals["night_spots"] = len(nights)
     provinces = time_by_province(pts, steps)
 
+    # The spot each day ended at: the night of a date belongs to that date.
+    # The drive home ran past midnight, so the last two days have none.
+    for di, dt in enumerate(dates):
+        days[di]["night"] = next((k for k, (a, b) in enumerate(spans) if a <= dt <= b), None)
+    records = find_records(days, nights, spans, dates, starts, ends, own, tz)
+
     return {"points": points, "days": days, "gaps": gaps, "nights": nights,
-            "provinces": provinces, "totals": totals}
+            "provinces": provinces, "province_visits": province_visits(pts, steps),
+            "records": records, "totals": totals}
 
 
 def print_summary(data, dropped_dup, dropped_home, trim_km):
     t = data["totals"]
-    head = "%-7s %8s %9s %9s %9s %7s %7s %5s" % (
-        "day", "km", "moving h", "avg km/h", "max km/h", "gain m", "loss m", "pts")
+    head = "%-11s %8s %9s %9s %9s %7s %7s %5s  %-13s %5s  %s" % (
+        "day", "km", "moving h", "avg km/h", "max km/h", "gain m", "loss m", "pts",
+        "moving", "night", "provinces")
     print(head)
     print("-" * len(head))
     for d in data["days"]:
         avg = "%.1f" % d["avg_kmh"] if d["avg_kmh"] is not None else "-"
-        print("%-7s %8.1f %9.2f %9s %9.1f %7d %7d %5d" % (
-            d["label"], d["km"], d["moving_h"], avg, d["max_kmh"],
-            d["gain_m"], d["loss_m"], d["points"]))
+        span = "%s-%s" % (d["start_local"], d["end_local"]) if d["start_local"] else "-"
+        night = "%d" % d["night"] if d["night"] is not None else "-"
+        print("%-11s %8.1f %9.2f %9s %9.1f %7d %7d %5d  %-13s %5s  %s" % (
+            d["weekday"] + " " + d["label"], d["km"], d["moving_h"], avg, d["max_kmh"],
+            d["gain_m"], d["loss_m"], d["points"], span, night, " ".join(d["provinces"])))
     print("-" * len(head))
-    print("%-7s %8.1f %9.2f %9s %9s %7d %7d %5d" % (
+    print("%-11s %8.1f %9.2f %9s %9s %7d %7d %5d" % (
         "total", t["km"], t["moving_h"], "", "", t["gain_m"], t["loss_m"], t["points"]))
     print()
     print("%s km over %d days with data, %s to %s" % (
@@ -520,6 +672,12 @@ def print_summary(data, dropped_dup, dropped_home, trim_km):
     print("%d nights at %d spots" % (t["nights"], t["night_spots"]))
     print("time by province: " + ", ".join(
         "%s %.0f h" % (p["name"], p["hours"]) for p in data["provinces"]))
+    print("province visits in order: " + ", ".join(
+        "%s %.0f h" % (v["code"], v["hours"]) for v in data["province_visits"]))
+    print("records:")
+    for r in data["records"]:
+        when = data["days"][r["day"]]["label"] if r["day"] is not None else "-"
+        print("  %-26s %-15s %s" % (r["label"], r["value_text"], when))
     print("dropped %d duplicate timestamps and %d points within %.1f km of home" % (
         dropped_dup, dropped_home, trim_km))
     if t["scale"] != 1:
