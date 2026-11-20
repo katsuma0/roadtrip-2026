@@ -517,7 +517,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
-.rec .num, .rec .unit { white-space: nowrap; }
+.rec .num { white-space: nowrap; }
 .rec .unit {
   margin-left: 0.14em;
   font-size: 0.65em;
@@ -717,7 +717,8 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 .dc-night button.row { cursor: pointer; }
 .dc-night .label { flex: none; }
 .dc-night .value { flex: 1; min-width: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.dc-night .value .more { margin-left: 6px; font-weight: 400; color: var(--muted); }
+/* "night 1 of 3" moves to a second line whole in a narrow card. */
+.dc-night .value .more { margin-left: 6px; font-weight: 400; color: var(--muted); white-space: nowrap; }
 .dc-night .go {
   flex: none;
   width: 14px;
@@ -2371,10 +2372,12 @@ body.sheet-open #dock::after { opacity: 1; }
     const jump = el('button', 'jump');
     jump.type = 'button';
     // The first space splits the figure from what it counts, so "3
-    // nights" keeps "nights" small beside the number.
+    // nights" keeps "nights" small beside the number. That space is where
+    // a narrow card may break the line; any later ones are no-break, so
+    // a unit of two words goes under the figure whole.
     const sp = rec.value_text.indexOf(' ');
     jump.appendChild(el('span', 'num', sp < 0 ? rec.value_text : rec.value_text.slice(0, sp)));
-    if (sp >= 0) jump.appendChild(el('span', 'unit', rec.value_text.slice(sp)));
+    if (sp >= 0) jump.appendChild(el('span', 'unit', ' ' + rec.value_text.slice(sp + 1).replace(/ /g, '\u00a0')));
     const spot = rec.idx === null ? null : TRIP.nights.filter(function (n) { return n.idx === rec.idx; })[0];
     let when = '';
     if (spot) when = spot.nights > 1 ? spot.from_label + ' to ' + spot.to_label : 'Night of ' + spot.from_label;
@@ -3619,25 +3622,36 @@ body.sheet-open #dock::after { opacity: 1; }
   // not in the document measures 0 wide. It is added before next.
   const NF_KM = new Intl.NumberFormat('en-CA', { maximumFractionDigits: 1 });
   function drawTicks(dom, parent, next) {
-    const full = isFull(dom);
-    let step;
-    if (full) {
-      step = xStepKm(scale.plotW);
-    } else {
-      // One spacing at every width, about the whole trip's at its
-      // narrowest, so the axis keeps its density when a day is picked;
-      // the widest label, "12,450 km", still has clear space either side.
-      const room = 64;
-      const raw = dom.w * room / scale.plotW;
-      const mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
-      step = [1, 2, 5, 10].map(function (m) { return m * mag; }).filter(function (s) { return s >= raw; })[0];
+    if (isFull(dom)) return layTicks(dom, xStepKm(scale.plotW), parent, next);
+    // One spacing at every width, about the whole trip's at its
+    // narrowest, so the axis keeps its density when a day is picked;
+    // the widest label, "12,450 km", still has clear space either side.
+    const room = 64;
+    const raw = dom.w * room / scale.plotW;
+    const mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    const steps = [mag / 2, mag, 2 * mag, 5 * mag, 10 * mag];
+    let k = steps.length - 1;
+    while (k > 0 && steps[k - 1] >= raw) k--;
+    // A single label says where the day is but not how long it is, which
+    // on a 320px dock happens to about one day in four, so the step goes
+    // down a notch until two labels show. Two notches down still leaves
+    // about a fifth of the plot between labels.
+    let g = layTicks(dom, steps[k], parent, next);
+    for (let tries = 0; tries < 2 && k > 0 && g.querySelectorAll('text').length < 2; tries++) {
+      g.parentNode.removeChild(g);
+      g = layTicks(dom, steps[--k], parent, next);
     }
+    return g;
+  }
+  function layTicks(dom, step, parent, next) {
+    const full = isFull(dom);
     const kms = [];
     for (let km = full ? 0 : Math.ceil(dom.a / step) * step; km <= dom.a + dom.w + 1e-6; km += step) {
       kms.push(Math.round(km * 10) / 10);
     }
     const g = svgEl('g', { class: 'grid xticks' });
     parent.insertBefore(g, next || null);
+    let prev = null;
     kms.forEach(function (km, k) {
       const gx = Math.round(xAt(km, dom)) + 0.5;
       const t = svgEl('g', {});
@@ -3660,10 +3674,16 @@ body.sheet-open #dock::after { opacity: 1; }
       }
       // The last label carries the unit and sits near the right edge, so
       // it is pulled in to end at the edge rather than run past it.
+      let lo = gx - half;
       if (gx + half > scale.W) {
         label.setAttribute('x', String(scale.W - gx));
         label.setAttribute('text-anchor', 'end');
+        lo = scale.W - half * 2;
       }
+      // Pulled in, it can reach the label before it; the one with the
+      // unit stays, the other keeps its tick.
+      if (prev && prev.hi > lo - 6) prev.t.removeChild(prev.label);
+      prev = { t: t, label: label, hi: gx + half };
     });
     return g;
   }
