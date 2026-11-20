@@ -72,7 +72,7 @@ AB_BC_LINE = [(49.0, -114.07), (49.63, -114.68), (50.6, -115.3), (51.45, -116.3)
 # at home; the README says so.
 TZ_NAME = "America/Toronto"
 
-DEFAULT_TITLE = "British Columbia road trip"
+DEFAULT_TITLE = "Road trip to the Rockies"
 
 # The car's odometer at the end of the trip. A fix every ten minutes cuts
 # every bend into a chord, so the summed track comes out short; every
@@ -406,12 +406,6 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
     d = pick(moving, lambda d: days[d]["km"], largest=False)
     if d is not None:
         add("shortest_day", "Shortest day", "%s km" % format(days[d]["km"], ",.1f"), d)
-    # The first date of the stay is the day that ended there.
-    k = pick(range(len(nights)), lambda k: nights[k]["nights"])
-    if k is not None:
-        day_of = {dt: i for i, dt in enumerate(dates)}
-        add("most_nights", "Most nights in one place", "%d nights" % nights[k]["nights"],
-            day_of.get(spans[k][0]), nights[k]["idx"])
     return out
 
 
