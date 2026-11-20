@@ -55,6 +55,7 @@
   --tiles: grayscale(1) contrast(0.86) brightness(1.04);
   --night-fill: #1b1b1b;
   --night-ring: #ffffff;
+  --route-shade: rgba(16, 24, 64, 0.10);
 
   --r-sheet: 28px;
   --r-card: 20px;
@@ -109,6 +110,7 @@
        there, louder than the route they sit on. */
     --night-fill: #8b8f99;
     --night-ring: #111216;
+    --route-shade: rgba(0, 0, 0, 0.26);
   }
 }
 
@@ -243,6 +245,9 @@ body::before {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
+  /* The handle is dragged as well as tapped, and a browser that took the
+     drag as a scroll or a pull to refresh would cancel the pointer. */
+  touch-action: none;
   transition: color 0.15s var(--ease);
 }
 #handle .grip {
@@ -254,7 +259,10 @@ body::before {
   margin-left: -18px;
   border-radius: 3px;
   background: var(--track);
+  transition: background-color 0.15s var(--ease), transform 0.2s var(--ease);
 }
+/* The grip widens a little under the finger, so a drag reads as taken. */
+body.sheet-dragging #handle .grip { background: var(--faint); transform: scaleX(1.18); }
 #handle .handle-text { padding-top: 8px; }
 #handle .chev {
   width: 10px;
@@ -311,6 +319,9 @@ body.sheet-open #handle .chev { transform: rotate(180deg); }
      where the 36px sticky header sits; this keeps the row and the 2px
      ring around it below the header. */
   scroll-padding-top: 40px;
+  /* A row revealed from below stops short of the rounded bottom corners
+     instead of sitting in them. */
+  scroll-padding-bottom: 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--track) transparent;
   transition: height 0.45s var(--ease-sheet), visibility 0s linear 0.45s;
@@ -322,6 +333,17 @@ body.sheet-open #stats {
   transition: height 0.45s var(--ease-sheet), visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
+/* While a finger drags the handle the height is set from the script on
+   every move and must follow it with no lag, so the transition is off. */
+body.sheet-dragging #stats {
+  overflow: hidden;
+  visibility: visible;
+  transition: none;
+}
+/* The title pill fades with the drag from the script, so it needs to be
+   there to fade even when the drag starts from open. The html prefix puts
+   this ahead of the open sheet's own title rule further down. */
+html body.sheet-dragging #title { visibility: visible; transition: none; }
 
 /* The one label style on the page: totals, table headers and section
    heads. The numbers carry the weight; the labels only name them. */
@@ -351,6 +373,9 @@ body.sheet-open #stats {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+/* While the totals count up each number keeps the width of its final
+   value, right aligned, so the unit beside it never moves. */
+#totals.counting .num { display: inline-block; text-align: right; }
 #totals .unit {
   margin-left: 0.14em;
   font-size: 0.65em;
@@ -406,7 +431,7 @@ body.sheet-open #stats {
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: stroke 0.15s var(--ease), transform 0.15s var(--ease);
   pointer-events: none;
 }
 .jump {
@@ -432,7 +457,7 @@ body.sheet-open #stats {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 #totals .place:has(.jump:focus-visible) .go { stroke: var(--accent); }
-#totals .place:active { transform: scale(0.98); }
+#totals .place:active { transform: scale(0.96); }
 @media (hover: hover) {
   #totals .place:hover {
     background: var(--accent-soft);
@@ -489,11 +514,12 @@ body.sheet-open #stats {
   gap: 3px;
   min-height: 36px;
   width: 100%;
-  transition: color 0.15s var(--ease);
+  transition: color 0.15s var(--ease), transform 0.2s var(--ease);
 }
 #days th:first-child button { justify-content: flex-start; padding-left: var(--gut); }
 #days th:last-child button { padding-right: var(--gut); }
 #days th button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+#days th button:active { transform: scale(0.96); }
 @media (hover: hover) {
   #days th button:hover { color: var(--text); }
 }
@@ -523,6 +549,8 @@ body.sheet-open #stats {
   background-clip: padding-box;
   transition: background-color 0.15s var(--ease);
 }
+/* Selecting is a bigger change than a hover, so it takes a little longer. */
+#days tbody tr.selected td { transition-duration: 0.2s; }
 #days td:first-child {
   padding: 0;
   text-align: left;
@@ -540,6 +568,10 @@ body.sheet-open #stats {
 @media (hover: hover) {
   #days tbody tr:hover td { background-color: var(--row-hover); }
 }
+/* A row is pressed with a tint, not the scale the other buttons take:
+   scaled, its numbers would leave their columns. The selected tint comes
+   later and wins on the selected row. */
+#days tbody tr:active td { background-color: var(--row-hover); }
 #days tbody tr.selected td { background-color: var(--accent-soft); }
 #days tbody tr.selected { font-weight: 600; }
 .day-row {
@@ -573,9 +605,10 @@ body.sheet-open #stats {
   border-radius: 0 2px 2px 0;
   background: var(--accent);
   opacity: 0;
-  transition: opacity 0.15s var(--ease);
+  transform: scaleY(0.4);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
 }
-tr.selected .day-row::before { opacity: 1; }
+tr.selected .day-row::before { opacity: 1; transform: none; }
 .day-row::after { inset: 0 var(--edge); border-radius: var(--r-sm); }
 .day-row:focus-visible { outline: none; }
 /* The ring hugs the pill from outside, so the selected bar stays visible
@@ -675,7 +708,11 @@ body.sheet-open #dock::after { opacity: 1; }
 #chart .grid line.tick { stroke: var(--track); }
 #chart .cursor line { stroke: var(--text); stroke-opacity: 0.32; stroke-width: 1; }
 #chart .cursor circle { stroke: var(--surface); stroke-width: 2; }
-#chart .day { transition: opacity 0.3s var(--ease); }
+/* A jump from a card, a night dot or a map tap slides the cursor so the
+   eye can follow it; scrubbing and playback move it with no easing, or it
+   would trail the finger and the marker. */
+#chart .cursor.ease, #chart .cursor.ease circle { transition: transform 0.18s var(--ease); }
+#chart .day { transition: opacity 0.2s var(--ease); }
 #play {
   grid-area: play;
   align-self: center;
@@ -696,7 +733,7 @@ body.sheet-open #dock::after { opacity: 1; }
 @media (hover: hover) {
   #play:hover { filter: brightness(1.08); box-shadow: 0 1px 2px var(--accent-glow), 0 6px 18px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
 }
-#play:active { transform: scale(0.92); }
+#play:active { transform: scale(0.96); }
 #play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #play svg { width: 14px; height: 14px; fill: currentColor; }
 /* The triangle's visual centre sits left of its box, so it moves a pixel
@@ -794,6 +831,10 @@ body.sheet-open #dock::after { opacity: 1; }
 }
 /* Without Leaflet the script stops before the first position is set. */
 #readout .when:empty::before { display: none; }
+/* The elevation sits between the time and the distance and changes
+   length most often ("1,412 m" to "47 m"), so it keeps the width of the
+   highest value (set from the script) and the distance never shifts. */
+#readout .ele { text-align: right; }
 
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
@@ -991,6 +1032,21 @@ body.sheet-open #dock::after { opacity: 1; }
   }
 }
 
+/* While the map moves or something animates inside the card or the
+   dock, the two take their solid fill in place of the blur. A blurred
+   backdrop is worked out again on every frame anything under or inside
+   it changes, which on desktop sizes runs a frame past 50ms without a
+   GPU; at 86% the blurred glass and the solid fill are within a few
+   levels of each other, so the swap does not show. The phone sheet is
+   small enough to keep its blur. */
+@media (min-width: 768px) {
+  body.glass-rest::before, body.glass-rest #dock {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* Forced colours paint borders in the text colour, which would turn the
    transparent row insets into black bars, and drop the backgrounds that
    draw the day keys and the slider track. */
@@ -1015,23 +1071,86 @@ body.sheet-open #dock::after { opacity: 1; }
 }
 
 /* Route. The casing under each day line takes the theme's base colour,
-   and one soft shadow under the whole overlay lifts the lines off the
-   tiles so the route reads first. */
+   and a faint wider stroke a pixel lower, under all the lines, is the
+   shadow that lifts them off the tiles so the route reads first.
+   A drop-shadow filter on the overlay drew the same thing, but redrew
+   the whole map sized layer on every frame of the reveal, a pan or a
+   zoom, which took a desktop frame past 50ms. */
 .leaflet-overlay-pane path.casing { stroke: var(--casing); }
-.leaflet-overlay-pane svg { filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.22)); }
-.track-marker {
+.leaflet-overlay-pane path.shade { stroke: var(--route-shade); transform: translateY(1px); }
+/* Leaflet restyles a line by rewriting its attributes; these turn the
+   fade of the other days, the thicker selected day and the dimming ahead
+   of the playing marker into a short ease instead of a cut. */
+.leaflet-overlay-pane path {
+  transition: stroke-opacity 0.2s var(--ease), fill-opacity 0.2s var(--ease), stroke-width 0.2s var(--ease);
+}
+/* The marker is HTML, so the pulse behind it is a transform and opacity
+   animation the compositor runs without repainting the map. fill-box
+   keeps the origin on the dot's centre if the halo is ever drawn in SVG. */
+.track-marker .dot, .track-marker .halo, .track-marker .halo i, .track-marker .glow {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  /* The ring, a faint edge so the ring holds on pale tiles, and a soft
-     shadow under both. */
+}
+.track-marker .dot, .track-marker .halo i, .track-marker .glow { background: var(--day, var(--accent)); }
+/* The ring, a faint edge so the ring holds on pale tiles, and a soft
+   shadow under both. */
+.track-marker .dot {
   box-shadow:
     0 0 0 2.5px #ffffff,
     0 0 0 3.5px rgba(16, 24, 64, 0.14),
     0 2px 6px 2.5px rgba(0, 0, 0, 0.24);
 }
+/* At rest the halo is a still ring. It pulses twice when the marker
+   comes to rest (the script adds .pulse) and the second pulse settles
+   into the ring: a pulse that never stops would keep the filtered tiles,
+   and any glass above the marker, redrawing for as long as the page is
+   open, and motion that starts on its own has to stop within 5s.
+   The pulse and the steady glow while playing are separate layers, so
+   one fades out while the other fades in; taking a running animation
+   away does not start a transition from where it was. A pulse on a
+   moving dot reads as flicker, so playback holds the glow instead. */
+.track-marker .halo { transition: opacity 0.3s var(--ease); }
+.track-marker .halo i {
+  opacity: 0.22;
+  transform: scale(2);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.track-marker.pulse .halo i { animation: halo-pulse 3.6s var(--ease); }
+.track-marker.playing .halo, .track-marker.waiting .halo { opacity: 0; }
+.track-marker .glow {
+  opacity: 0;
+  transform: scale(2.3);
+  transition: opacity 0.3s var(--ease);
+}
+.track-marker.playing .glow { opacity: 0.32; }
+/* The jump back to scale 1 between the two pulses happens behind the dot. */
+@keyframes halo-pulse {
+  0% { opacity: 0.42; transform: scale(1); }
+  43%, 66.6% { opacity: 0; transform: scale(3); }
+  66.7% { opacity: 0.42; transform: scale(1); }
+  100% { opacity: 0.22; transform: scale(2); }
+}
+/* Only the still ring when the viewer asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .track-marker.pulse .halo i { animation: none; }
+}
+/* The dots that pop in on load scale from their own centre, not from the
+   corner of the SVG they are drawn in. */
+.leaflet-pane path.night, .leaflet-pane path.end-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
 /* Night dots are dark on the light map and a quieter grey on the dark
    one, and never the white of the start and end dots, so the two kinds
-   read apart at a glance. */
-.leaflet-pane path.night { fill: var(--night-fill); stroke: var(--night-ring); }
+   read apart at a glance. They pop in from their own centre as the route
+   reaches them on load. */
+.leaflet-pane path.night {
+  fill: var(--night-fill);
+  stroke: var(--night-ring);
+  transition: stroke-opacity 0.2s var(--ease), fill-opacity 0.2s var(--ease);
+}
 
 .leaflet-container {
   background: var(--map-bg);
@@ -1076,7 +1195,7 @@ body.sheet-open #dock::after { opacity: 1; }
   background: transparent;
   color: var(--text);
   border-bottom: 0;
-  transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
 }
 /* An inset divider rather than a full width border, so the two halves
    read as one control. */
@@ -1098,7 +1217,7 @@ body.sheet-open #dock::after { opacity: 1; }
 @media (hover: hover) {
   .leaflet-bar a:hover { background: var(--row-hover); color: var(--accent); }
 }
-.leaflet-bar a:active { background: var(--accent-soft); color: var(--accent); }
+.leaflet-bar a:active { background: var(--accent-soft); color: var(--accent); transform: scale(0.96); }
 .leaflet-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -5px; border-radius: 11px; }
 .leaflet-bar a.leaflet-disabled,
 .leaflet-bar a.leaflet-disabled:hover {
@@ -1116,7 +1235,10 @@ body.sheet-open #dock::after { opacity: 1; }
   font-size: 11px;
   box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
 }
-.leaflet-container .leaflet-control-attribution a { color: var(--accent); }
+.leaflet-container .leaflet-control-attribution a { color: var(--accent); transition: color 0.15s var(--ease); }
+@media (hover: hover) {
+  .leaflet-container .leaflet-control-attribution a:hover { color: var(--text); }
+}
 .leaflet-tooltip {
   background: var(--surface);
   border: 0;
@@ -1226,6 +1348,9 @@ body.sheet-open #dock::after { opacity: 1; }
   const LINE_OPACITY = 0.9;
   const FADED_OPACITY = 0.25;
   const CASING_OPACITY = 0.8;
+  // While playing, the days the marker has not reached yet sit back so
+  // the part already driven reads as the trail.
+  const AHEAD_OPACITY = 0.35;
   // Room so the fitted track clears the zoom control and the glass that
   // floats over the full-bleed map: the card on the left and the dock at
   // the bottom on desktop, the title pill and the sheet on a phone.
@@ -1235,10 +1360,42 @@ body.sheet-open #dock::after { opacity: 1; }
   const titleEl = document.getElementById('title');
   const reduceMotion = typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The load sequence runs on the Web Animations API; without it, or when
+  // the viewer asked for less motion, everything is simply there. Chrome
+  // shipped animate() years before the finished promise the reveal waits on.
+  const canAnimate = !reduceMotion && typeof Element.prototype.animate === 'function' &&
+    typeof Animation === 'function' && 'finished' in Animation.prototype;
+  const EASE_UI = 'cubic-bezier(0.22, 0.8, 0.24, 1)';
+
+  // Things that move for a while (the load sequence, playback, a pan or a
+  // zoom, a scrub) say so here, and the glass rests while any of them
+  // runs. It comes back a moment after the last one stops, so the frames
+  // of a pan that stops and starts again do not flip it back and forth.
+  // Playback reports a pan on every frame, so the class is only touched
+  // when the state really changes.
+  const moving = {};
+  let resting = false;
+  let restTimer = 0;
+  function motion(key, on) {
+    if (!on && !moving[key]) return;
+    if (on) moving[key] = true; else delete moving[key];
+    if (on) {
+      if (restTimer) { clearTimeout(restTimer); restTimer = 0; }
+      if (!resting) { resting = true; document.body.classList.add('glass-rest'); }
+    } else if (!restTimer && !Object.keys(moving).length) {
+      restTimer = setTimeout(function () {
+        restTimer = 0;
+        if (Object.keys(moving).length) return;
+        resting = false;
+        document.body.classList.remove('glass-rest');
+      }, 160);
+    }
+  }
 
   // How far each floating panel reaches into the map, in pixels. Read from
   // the boxes because the sheet height animates and the title can wrap;
-  // cached because playback asks every 30ms, and cleared by the observer
+  // cached because playback asks on every animation frame (through
+  // panPadding), and cleared by the observer
   // further down whenever a panel changes size. Elements are looked up by
   // id here since this runs on load, before the consts below exist.
   // statsTo, when given, is the height in pixels the phone sheet's stats
@@ -1314,13 +1471,29 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   // The playing marker is kept inside the open part of the map too, or it
   // would run under the card or the sheet.
+  let panCache = null;
   function panPadding() {
+    if (panCache && insetCache) return panCache;
     const size = map.getSize();
     const o = overlayInsets();
-    const tl = [o.left + 48, o.top + 48];
-    const br = [Math.max(48, o.right + 16), o.bottom + o.attrib + 48];
-    if (size.x - tl[0] - br[0] < 40 || size.y - tl[1] - br[1] < 40) return { padding: [16, 16] };
-    return { paddingTopLeft: tl, paddingBottomRight: br };
+    // A small phone with the sheet open leaves too little map for the full
+    // margin, so a tight one that still clears every panel by the marker's
+    // radius and ring comes next; only a strip too thin even for that lets
+    // the marker under the panels.
+    const tries = [
+      [[o.left + 48, o.top + 48], [Math.max(48, o.right + 16), o.bottom + o.attrib + 48], 40],
+      [[o.left + 16, o.top + 16], [Math.max(16, o.right + 16), o.bottom + o.attrib + 16], 24]
+    ];
+    panCache = { padding: [16, 16], animate: false };
+    for (let t = 0; t < tries.length; t++) {
+      const tl = tries[t][0];
+      const br = tries[t][1];
+      if (size.x - tl[0] - br[0] >= tries[t][2] && size.y - tl[1] - br[1] >= tries[t][2]) {
+        panCache = { paddingTopLeft: tl, paddingBottomRight: br, animate: false };
+        break;
+      }
+    }
+    return panCache;
   }
   // Selecting a day flies there instead of jumping, unless the viewer
   // asked for less motion.
@@ -1340,6 +1513,17 @@ body.sheet-open #dock::after { opacity: 1; }
 
   const latlngs = TRIP.points.map(function (p) { return [p[0], p[1]]; });
   const trackBounds = L.latLngBounds(latlngs);
+
+  // During a fly Leaflet scales the SVG layers with a CSS transform and
+  // redraws them only when it lands, so the 3px lines and the dots swell
+  // to twenty times their width and snap back at the end. Redrawn on each
+  // frame of a fly instead they keep their width; a redraw is about a
+  // millisecond. Wheel and button zooms keep the short scaled animation.
+  L.SVG.include({
+    _onZoom: function (e) {
+      if (e && e.flyTo) this._reset(); else L.Renderer.prototype._onZoom.call(this);
+    }
+  });
 
   // Fits snap to quarter levels: with whole levels the trip on a narrow
   // phone rounds down to a short line buried under its night dots. The
@@ -1368,16 +1552,56 @@ body.sheet-open #dock::after { opacity: 1; }
   // credit stays, as text.
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
   L.control.zoom({ position: 'topright' }).addTo(map);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // Tiles load for the level a zoom or a fly lands on, not for every
+  // level it passes: a day fly crosses three or four, and loading and
+  // fading each set in turn made its frames uneven, for tiles that are
+  // gone again a moment later. It also spares OSM those requests.
+  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
+    updateWhenZooming: false,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+  // New tiles fade in under the glass for a moment after they arrive.
+  const TILE_FADE_MS = 240;
+  // A batch that starts before the last one's fade is over keeps the glass
+  // at rest, so the earlier timer is dropped.
+  let tileTimer = 0;
+  tiles.on('loading', function () {
+    if (tileTimer) { clearTimeout(tileTimer); tileTimer = 0; }
+    motion('tiles', true);
+  });
+  tiles.on('load', function () {
+    if (tileTimer) clearTimeout(tileTimer);
+    tileTimer = setTimeout(function () { tileTimer = 0; motion('tiles', false); }, TILE_FADE_MS);
+  });
   map.fitBounds(trackBounds, fitPadding());
+  // move as well as movestart: invalidateSize, on a resize or a change of
+  // layout, fires move and moveend without a movestart.
+  map.on('movestart move', function () { motion('map', true); });
+  map.on('moveend', function () { motion('map', false); });
 
   // A segment with a single point is a lone fix between two gaps, so it
   // gets a dot rather than a zero length line.
   const dayLayers = [];
   const dayBounds = [];
+  // Each drawn path with its segment's fix indices, so the reveal on load
+  // can place it along the trip.
+  const routeParts = [];
+  // The shadow strokes go in first, for every day, and are never raised,
+  // so they stay under all the lines and no day's shadow falls across
+  // another day's line where the two cross. They share the overlay's SVG:
+  // a layer of their own would be one more map sized surface to draw on
+  // every frame of a pan or a zoom.
+  const dayShades = TRIP.days.map(function (day) {
+    return day.segments.filter(function (seg) { return seg[1] > seg[0]; }).map(function (seg) {
+      const shade = L.polyline(latlngs.slice(seg[0], seg[1] + 1), {
+        className: 'shade', weight: LINE_WEIGHT + 4, opacity: 1,
+        lineJoin: 'round', lineCap: 'round', interactive: false
+      }).addTo(map);
+      routeParts.push({ layer: shade, seg: seg });
+      return shade;
+    });
+  });
   TRIP.days.forEach(function (day, d) {
     const group = L.layerGroup();
     const dayCoords = [];
@@ -1393,10 +1617,12 @@ body.sheet-open #dock::after { opacity: 1; }
         // A casing under each line keeps the colour readable over the
         // greens and tans of real tiles. Its stroke comes from CSS so it
         // flips with the theme.
-        group.addLayer(L.polyline(coords, {
+        const casing = L.polyline(coords, {
           className: 'casing', weight: LINE_WEIGHT + 3, opacity: CASING_OPACITY,
           lineJoin: 'round', lineCap: 'round', interactive: false
-        }));
+        });
+        group.addLayer(casing);
+        routeParts.push({ layer: casing, seg: seg });
         // Not interactive: the map itself takes the tap, so the target is
         // a thumb's width around the line rather than the line's 3px.
         layer = L.polyline(coords, {
@@ -1405,6 +1631,7 @@ body.sheet-open #dock::after { opacity: 1; }
         });
       }
       group.addLayer(layer);
+      routeParts.push({ layer: layer, seg: seg, dot: coords.length === 1 });
       dayCoords.push.apply(dayCoords, coords);
     });
     group.addTo(map);
@@ -1448,7 +1675,7 @@ body.sheet-open #dock::after { opacity: 1; }
   // both readable instead of one covering the other.
   function endMarker(latlng, text, side) {
     return L.circleMarker(latlng, {
-      radius: 6, color: '#222222', weight: 2, opacity: 1,
+      className: 'end-dot', radius: 6, color: '#222222', weight: 2, opacity: 1,
       fillColor: '#ffffff', fillOpacity: 1
     }).bindTooltip(text, {
       permanent: true, direction: side, className: 'end-label', offset: [side === 'left' ? -6 : 6, 0]
@@ -1464,8 +1691,12 @@ body.sheet-open #dock::after { opacity: 1; }
   // tabular figures; a true minus matches them and is read as "minus".
   function minus(text) { return text.replace(/^-/, '\u2212'); }
   // Adding 0 turns a rounded -0 into 0, which would otherwise print as "-0".
-  function fmtInt(n) { return minus((Math.round(n) + 0).toLocaleString('en-CA')); }
-  function fmt1(n) { return n.toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  // Built once: toLocaleString makes a new formatter on every call, and the
+  // count up and playback format numbers on every frame.
+  const NF_INT = new Intl.NumberFormat('en-CA');
+  const NF_1 = new Intl.NumberFormat('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function fmtInt(n) { return minus(NF_INT.format(Math.round(n) + 0)); }
+  function fmt1(n) { return NF_1.format(n); }
   function el(name, className, text) {
     const n = document.createElement(name);
     if (className) n.className = className;
@@ -1484,24 +1715,27 @@ body.sheet-open #dock::after { opacity: 1; }
   const totalGroups = [
     ['hero', [{ label: 'Distance', value: fmt1(totals.km) + ' km', hero: true }]],
     ['pairs', [
-      { label: 'Days', value: fmtInt(totals.days) },
-      { label: 'Moving', value: fmtInt(totals.moving_h) + ' h' },
-      { label: 'Climbed', value: fmtInt(totals.gain_m) + ' m' },
-      { label: 'Descended', value: fmtInt(totals.loss_m) + ' m' }
+      { label: 'Days', value: fmtInt(totals.days), raw: totals.days },
+      { label: 'Moving', value: fmtInt(totals.moving_h) + ' h', raw: totals.moving_h },
+      { label: 'Climbed', value: fmtInt(totals.gain_m) + ' m', raw: totals.gain_m },
+      { label: 'Descended', value: fmtInt(totals.loss_m) + ' m', raw: totals.loss_m }
     ]],
     ['places', [
-      { label: 'Highest', value: fmtInt(totals.high_m) + ' m', index: totals.high_idx },
-      { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', index: totals.low_idx },
-      { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', index: totals.farthest_idx }
+      { label: 'Highest', value: fmtInt(totals.high_m) + ' m', raw: totals.high_m, index: totals.high_idx },
+      { label: 'Lowest', value: fmtInt(totals.low_m) + ' m', raw: totals.low_m, index: totals.low_idx },
+      { label: 'Farthest from start', value: fmtInt(totals.farthest_km) + ' km', raw: totals.farthest_km, index: totals.farthest_idx }
     ]]
   ];
   // The unit goes in a span of its own so it can sit smaller than the
   // number; the text content stays "12,613.7 km" for readers and tests.
+  // The number gets a span too, so the count up on load can hold its
+  // width; it returns that span.
   function fillValue(node, value) {
     const sp = value.lastIndexOf(' ');
-    if (sp < 0) { node.textContent = value; return; }
-    node.appendChild(document.createTextNode(value.slice(0, sp)));
-    node.appendChild(el('span', 'unit', value.slice(sp)));
+    const num = el('span', 'num', sp < 0 ? value : value.slice(0, sp));
+    node.appendChild(num);
+    if (sp >= 0) node.appendChild(el('span', 'unit', value.slice(sp)));
+    return num;
   }
   // An arrow pointing up and out of the card: it goes somewhere else.
   function goIcon() {
@@ -1510,17 +1744,22 @@ body.sheet-open #dock::after { opacity: 1; }
     return svg;
   }
   const totalsEl = document.getElementById('totals');
+  // The count up ends on the exact text written here, and formats the
+  // numbers on the way with the same formatter so they never change style.
+  const counters = [];
   totalGroups.forEach(function (group) {
     const list = el('dl', group[0]);
     group[1].forEach(function (item) {
       const wrap = el('div', item.hero ? 'hero' : (item.index === undefined ? '' : 'place'));
       wrap.appendChild(el('dt', '', item.label));
       const dd = el('dd');
+      const value = item.hero ? totals.km : item.raw;
+      let num;
       if (item.index === undefined) {
-        fillValue(dd, item.value);
+        num = fillValue(dd, item.value);
       } else {
         const jump = el('button', 'jump');
-        fillValue(jump, item.value);
+        num = fillValue(jump, item.value);
         jump.type = 'button';
         jump.setAttribute('aria-label', item.label + ' ' + item.value + ', show on map');
         jump.setAttribute('data-index', String(item.index));
@@ -1530,6 +1769,7 @@ body.sheet-open #dock::after { opacity: 1; }
       }
       wrap.appendChild(dd);
       list.appendChild(wrap);
+      counters.push({ node: num, text: num.textContent, to: value, fmt: item.hero ? fmt1 : fmtInt });
     });
     totalsEl.appendChild(list);
   });
@@ -1639,37 +1879,71 @@ body.sheet-open #dock::after { opacity: 1; }
     // The toggle is the list's own clear control, the same as Escape, so
     // the sheet needs no separate clear button.
     if (d === selectedDay) d = null;
-    selectedDay = d;
     // A day picked while playing should stay on screen, but the pan that
-    // follows the marker would drag the view away within a tick, so
-    // playback pauses. The timer lives further down; selection only
-    // happens on user input, long after the script has finished.
-    if (selectedDay !== null && timer !== null) stopPlay();
-    dayLayers.forEach(function (group, i) {
-      const lit = selectedDay === null || i === selectedDay;
-      const opacity = lit ? LINE_OPACITY : FADED_OPACITY;
-      group.eachLayer(function (layer) {
-        const weight = i === selectedDay ? SELECTED_WEIGHT : LINE_WEIGHT;
-        if (layer.options.className === 'casing') {
-          // A faded day is thin and pale already; its casing would only
-          // add a grey smear, so it goes away with the fade.
-          layer.setStyle({ opacity: lit ? CASING_OPACITY : 0, weight: weight + 3 });
-        } else if (layer instanceof L.Polyline) {
-          layer.setStyle({ opacity: opacity, weight: weight });
-        } else {
-          layer.setStyle({ opacity: opacity, fillOpacity: opacity });
-        }
-        if (i === selectedDay) layer.bringToFront();
-      });
-    });
-    // The markers must stay on top of whichever line was just raised.
-    startMarker.bringToFront();
-    finishMarker.bringToFront();
+    // follows the marker would drag the view away within a frame, so
+    // playback pauses. Selection only happens on user input, long after
+    // the script has finished. The pause comes first, so it puts the
+    // stacking back in date order before the picked day goes on top.
+    if (d !== null && playing) stopPlay();
+    selectedDay = d;
+    if (selectedDay !== null) raiseDays(selectedDay, selectedDay);
+    styleDays();
     rows.forEach(function (row, i) {
       row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
       // The tint goes on the row, not the button, so the numbers read as
       // selected along with the label.
       trs[i].classList.toggle('selected', i === selectedDay);
+    });
+    revealSelected();
+    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
+  }
+
+  // Puts days first to last above the rest, in that order. The markers
+  // must stay on top of whichever lines were just raised. Raise before a
+  // restyle: a moved path loses its computed style, so a change made
+  // before the next style pass has nothing to ease from and cuts. The
+  // read at the end is that pass, once per call.
+  function raiseDays(first, last) {
+    let moved = null;
+    for (let d = first; d <= last; d++) {
+      dayLayers[d].eachLayer(function (layer) { layer.bringToFront(); moved = layer.getElement() || moved; });
+    }
+    startMarker.bringToFront();
+    finishMarker.bringToFront();
+    if (moved) void getComputedStyle(moved).strokeWidth;
+  }
+
+  // How each day is drawn: picked, faded behind a picked day, ahead of the
+  // playing marker, or plain. Only days whose look changed are restyled,
+  // since playback asks again every time the marker enters a new day.
+  const dayLooks = [];
+  function dayLook(d) {
+    if (selectedDay !== null) return d === selectedDay ? 'picked' : 'faded';
+    return playing && d > points[current][5] ? 'ahead' : 'plain';
+  }
+  function styleDays() {
+    dayLayers.forEach(function (group, i) {
+      const look = dayLook(i);
+      if (dayLooks[i] === look) return;
+      dayLooks[i] = look;
+      const opacity = look === 'faded' ? FADED_OPACITY : look === 'ahead' ? AHEAD_OPACITY : LINE_OPACITY;
+      const weight = look === 'picked' ? SELECTED_WEIGHT : LINE_WEIGHT;
+      // A faded day is thin and pale already; its casing would only add a
+      // grey smear, so it goes away with the fade. A day ahead keeps a
+      // lighter one so it still reads as the route still to come.
+      const casing = look === 'faded' ? 0 : look === 'ahead' ? CASING_OPACITY * AHEAD_OPACITY : CASING_OPACITY;
+      dayShades[i].forEach(function (shade) {
+        shade.setStyle({ opacity: casing / CASING_OPACITY, weight: weight + 4 });
+      });
+      group.eachLayer(function (layer) {
+        if (layer.options.className === 'casing') {
+          layer.setStyle({ opacity: casing, weight: weight + 3 });
+        } else if (layer instanceof L.Polyline) {
+          layer.setStyle({ opacity: opacity, weight: weight });
+        } else {
+          layer.setStyle({ opacity: opacity, fillOpacity: opacity });
+        }
+      });
     });
     // A stop belongs to the day that ended there and to each day that
     // started there, one per night (the trip has a day for every date);
@@ -1678,32 +1952,45 @@ body.sheet-open #dock::after { opacity: 1; }
     nightDots.forEach(function (dot, k) {
       const spot = TRIP.nights[k];
       const from = points[spot.idx][5];
-      const lit = selectedDay === null || (selectedDay >= from && selectedDay <= from + spot.nights);
-      dot.setStyle({ opacity: lit ? 1 : FADED_OPACITY, fillOpacity: lit ? 1 : FADED_OPACITY });
+      let o = 1;
+      if (selectedDay !== null) {
+        o = selectedDay >= from && selectedDay <= from + spot.nights ? 1 : FADED_OPACITY;
+      } else if (dayLooks[from] === 'ahead') {
+        o = AHEAD_OPACITY;
+      }
+      if (dot.options.opacity !== o) dot.setStyle({ opacity: o, fillOpacity: o });
     });
     fadeChart();
-    revealSelected();
-    fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
   }
 
   // Not scrollIntoView: the sticky header paints over the scrollport
   // without shrinking it, so a row tucked under the header counts as
-  // visible and never moves. The header height comes off the top. A sort
-  // or the sheet opening can move the selected row too, so they call this
-  // as well.
+  // visible and never moves. The room kept at the top is the stats'
+  // scroll-padding (the header, and on a phone the fade under the dock),
+  // read from CSS so the two never disagree, and the scroll glides there.
+  // A sort or the sheet opening can move the selected row too, so they
+  // call this as well.
   function revealSelected() {
     const stats = document.getElementById('stats');
     if (selectedDay === null || stats.clientHeight === 0) return;
     const row = trs[selectedDay].getBoundingClientRect();
     const box = stats.getBoundingClientRect();
+    const cs = getComputedStyle(stats);
     const head = document.querySelector('#days thead').offsetHeight;
+    // On a phone on its side the open stats can be 76px, too short for a
+    // row and the full padding; the header alone is then the limit.
+    const bottom = Math.max(0, Math.min(parseFloat(cs.scrollPaddingBottom) || 0, box.height - head - row.height));
+    const room = box.height - bottom - row.height;
+    const top = Math.max(head, Math.min(parseFloat(cs.scrollPaddingTop) || 0, room));
     // Rounded up because scrollTop lands on whole pixels and a half
     // pixel short still clips the row's border.
-    if (row.top < box.top + head) {
-      stats.scrollTop -= Math.ceil(box.top + head - row.top);
-    } else if (row.bottom > box.bottom) {
-      stats.scrollTop += Math.ceil(row.bottom - box.bottom);
+    let to = null;
+    if (row.top < box.top + top) {
+      to = stats.scrollTop - Math.ceil(box.top + top - row.top);
+    } else if (row.bottom > box.bottom - bottom) {
+      to = stats.scrollTop + Math.ceil(row.bottom - box.bottom + bottom);
     }
+    if (to !== null) stats.scrollTo({ top: to, behavior: reduceMotion ? 'auto' : 'smooth' });
   }
 
   document.addEventListener('keydown', function (e) {
@@ -1716,12 +2003,128 @@ body.sheet-open #dock::after { opacity: 1; }
   // sheet rises instead of the route vanishing under it first.
   const handle = document.getElementById('handle');
   const sheetProbe = document.getElementById('sheet-probe');
+  const statsBox = document.getElementById('stats');
   function viewBounds() { return selectedDay === null ? trackBounds : dayBounds[selectedDay]; }
-  handle.addEventListener('click', function () {
-    const open = document.body.classList.toggle('sheet-open');
+  // A tap during a drag's settle would otherwise run with the settle's
+  // shortened time and its delayed hide.
+  function clearSettle() {
+    statsBox.style.transitionDuration = '';
+    statsBox.style.transitionDelay = '';
+  }
+  function setSheet(open, settling) {
+    if (!settling) clearSettle();
+    document.body.classList.toggle('sheet-open', open);
     handle.setAttribute('aria-expanded', open ? 'true' : 'false');
     fitTo(viewBounds(), open ? sheetProbe.offsetHeight : 0);
+    if (open) panelIntro();
+  }
+  // A click right after a drag is the end of that drag, not a tap. A
+  // keyboard click has no pointer and a detail of 0, so it always counts.
+  let dragEndedAt = -1e9;
+  handle.addEventListener('click', function (e) {
+    if (e.detail && performance.now() - dragEndedAt < 400) return;
+    setSheet(!document.body.classList.contains('sheet-open'));
   });
+
+  // The height is applied once per frame, so a fast finger costs one
+  // layout a frame rather than one per pointer event.
+  const DRAG_SLOP = 6;
+  const FLICK = 0.35;
+  let drag = null;
+  let dragFrame = 0;
+  function dragHeight(d) {
+    let h = d.h0 - (d.y - d.y0);
+    // Past the open height it gives a little, like pulling on the end of
+    // a list, and comes back on release.
+    if (h > d.max) h = reduceMotion ? d.max : d.max + Math.min(32, (h - d.max) * 0.3);
+    return Math.max(0, h);
+  }
+  handle.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || !e.isPrimary) return;
+    drag = {
+      id: e.pointerId, y0: e.clientY, y: e.clientY, moved: false,
+      h0: statsBox.getBoundingClientRect().height, max: sheetProbe.offsetHeight,
+      trail: [{ t: e.timeStamp, y: e.clientY }]
+    };
+    drag.past = drag.h0 > drag.max / 2;
+    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.y = e.clientY;
+    drag.trail.push({ t: e.timeStamp, y: e.clientY });
+    if (drag.trail.length > 8) drag.trail.shift();
+    if (!drag.moved) {
+      if (Math.abs(e.clientY - drag.y0) < DRAG_SLOP) return;
+      drag.moved = true;
+      // Picked up mid animation, the sheet stops where it is.
+      statsBox.style.height = drag.h0 + 'px';
+      document.body.classList.add('sheet-dragging');
+      // The stats come into view with the drag, so their entrance plays
+      // now rather than on release.
+      panelIntro();
+    }
+    if (!dragFrame) {
+      dragFrame = requestAnimationFrame(function () {
+        dragFrame = 0;
+        if (!drag || !drag.moved) return;
+        const h = dragHeight(drag);
+        statsBox.style.height = h + 'px';
+        // The early refit, for a drag: once the sheet is past halfway it
+        // would settle on the other side, so the route moves clear of that
+        // height now rather than staying under the finger's sheet.
+        const past = h > drag.max / 2;
+        if (past !== drag.past) {
+          drag.past = past;
+          fitTo(viewBounds(), past ? drag.max : 0);
+        }
+        // The title pill makes way as the sheet rises, as it does when the
+        // sheet opens with a tap.
+        const k = Math.min(1, h / Math.max(1, drag.max) * 1.5);
+        titleEl.style.opacity = String(1 - k);
+        titleEl.style.transform = 'translateY(' + (-8 * k).toFixed(1) + 'px)';
+      });
+    }
+  });
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    if (!d.moved) return;
+    if (dragFrame) { cancelAnimationFrame(dragFrame); dragFrame = 0; }
+    dragEndedAt = performance.now();
+    const h = dragHeight(d);
+    // The last move's frame was dropped above; the settle starts from h.
+    statsBox.style.height = h + 'px';
+    // The speed over the last few moves, in pixels per millisecond, down
+    // being positive. A cancelled pointer settles by position alone.
+    let v = 0;
+    const a = d.trail[0];
+    const b = d.trail[d.trail.length - 1];
+    if (e.type === 'pointerup' && b.t - a.t > 0 && e.timeStamp - b.t < 100) v = (b.y - a.y) / (b.t - a.t);
+    const open = !reduceMotion && Math.abs(v) > FLICK ? v < 0 : h > d.max / 2;
+    settleSheet(open, h, d.max);
+  }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+  // The sheet eases from where the finger left it to open or closed, in a
+  // time that shrinks with the distance left, so a short settle is not
+  // stretched over the full 450ms.
+  function settleSheet(open, from, max) {
+    const to = open ? max : 0;
+    const ms = Math.round(Math.max(200, Math.min(450, 450 * Math.abs(to - from) / Math.max(1, max))));
+    statsBox.style.transitionDuration = ms + 'ms, 0s';
+    statsBox.style.transitionDelay = open ? '0s, 0s' : '0s, ' + ms + 'ms';
+    setSheet(open, true);
+    document.body.classList.remove('sheet-dragging');
+    // The inline values are the start of the transitions; reading the
+    // style commits them before the class values take over.
+    void getComputedStyle(statsBox).height;
+    statsBox.style.height = '';
+    titleEl.style.opacity = '';
+    titleEl.style.transform = '';
+    if (Math.abs(to - from) < 0.5) sheetSettled();
+  }
 
   // The map fills the window, so it changes size on resize and rotation;
   // without this Leaflet keeps the old size and leaves grey tiles at the
@@ -1732,10 +2135,11 @@ body.sheet-open #dock::after { opacity: 1; }
   // it through --occl-bottom.
   function panelsMoved() {
     insetCache = null;
+    panCache = null;
     mapEl.style.setProperty('--occl-bottom', overlayInsets().bottom + 'px');
   }
   if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(function () { map.invalidateSize(); }).observe(mapEl);
+    new ResizeObserver(function () { map.invalidateSize(); panCache = null; }).observe(mapEl);
     const panelObserver = new ResizeObserver(panelsMoved);
     ['map', 'title', 'stats', 'dock'].forEach(function (id) {
       panelObserver.observe(document.getElementById(id));
@@ -1748,11 +2152,19 @@ body.sheet-open #dock::after { opacity: 1; }
   // is usually a pan of nothing. It is there for a second tap inside the
   // first fit's zoom: Leaflet drops a fit asked for mid zoom, and the
   // view would stay fitted for the sheet state before.
-  document.getElementById('stats').addEventListener('transitionend', function (e) {
-    if (e.propertyName !== 'height') return;
+  function sheetSettled() {
+    clearSettle();
     panelsMoved();
     revealSelected();
     fitTo(viewBounds(), undefined, true);
+  }
+  statsBox.addEventListener('transitionend', function (e) {
+    if (e.target === statsBox && e.propertyName === 'height') sheetSettled();
+  });
+  // A settle cut off by a change of layout never ends, so its inline
+  // timing would stay behind for the next tap.
+  statsBox.addEventListener('transitioncancel', function (e) {
+    if (e.target === statsBox && e.propertyName === 'height') clearSettle();
   });
 
   // The map keeps its size when the panels move between layouts, so a
@@ -1765,6 +2177,7 @@ body.sheet-open #dock::after { opacity: 1; }
     layoutFrame = requestAnimationFrame(function () {
       layoutFrame = 0;
       insetCache = null;
+      panCache = null;
       map.invalidateSize({ pan: false });
       // On a phone the sheet may be moving to a new open height, so the
       // fit aims at the height it will settle on.
@@ -1801,15 +2214,61 @@ body.sheet-open #dock::after { opacity: 1; }
 
   // A pane of its own keeps the marker above the day lines and the start
   // and end dots, which all share the overlay pane, and below the tooltips.
-  // An HTML marker rather than an SVG circle: it moves every 30ms while
+  // An HTML marker rather than an SVG circle: it moves every frame while
   // playing, and Leaflet moves an HTML marker with a transform, so the
-  // map under it (and the glass over the map) is not repainted each tick.
+  // map under it (and the glass over the map) is not repainted each frame.
   map.createPane('track').style.zIndex = '450';
   const trackMarker = L.marker(latlngs[0], {
     pane: 'track', interactive: false, keyboard: false,
-    icon: L.divIcon({ className: 'track-marker', iconSize: [14, 14] })
+    icon: L.divIcon({
+      className: 'track-marker', iconSize: [14, 14],
+      html: '<span class="halo"><i></i></span><span class="glow"></span><span class="dot"></span>'
+    })
   }).addTo(map);
+  // Leaflet rounds a marker to whole pixels (and latLngToLayerPoint
+  // rounds too), which at playback speed moves the dot a pixel every
+  // other frame in a visible stutter. The transform takes fractions, so
+  // the glide stays even.
+  trackMarker.update = function () {
+    if (this._icon && this._map) this._setPos(this._map.project(this._latlng)._subtract(this._map.getPixelOrigin()));
+    return this;
+  };
   const trackEl = trackMarker.getElement();
+  const trackDot = trackEl.querySelector('.dot');
+  const trackRing = trackEl.querySelector('.halo i');
+
+  // The halo pulses when the marker comes to rest, and not while it sits
+  // under the card, the dock or the sheet: each frame of the pulse there
+  // makes the glass above it blur again, which takes a desktop frame past
+  // 50ms. The pulse reaches three times the dot's 7px radius.
+  const HALO_REACH = 21;
+  function markerInOpen() {
+    const o = overlayInsets();
+    const size = map.getSize();
+    const p = map.latLngToContainerPoint(trackMarker.getLatLng());
+    return p.x - HALO_REACH >= o.left && p.y - HALO_REACH >= o.top &&
+      p.x + HALO_REACH <= size.x && p.y + HALO_REACH <= size.y - o.bottom;
+  }
+  // A scrub or a run of taps comes to rest once, a moment after the last.
+  let haloTimer = 0;
+  function restHalo() {
+    if (haloTimer) { clearTimeout(haloTimer); haloTimer = 0; }
+    const was = trackEl.classList.contains('pulse');
+    trackEl.classList.remove('pulse');
+    if (reduceMotion || playing || trackEl.classList.contains('waiting') || !markerInOpen()) return;
+    // Taking the class off and on in one go would not start the pulse over.
+    if (was) void trackRing.offsetWidth;
+    trackEl.classList.add('pulse');
+  }
+  function haloSoon() {
+    if (haloTimer) clearTimeout(haloTimer);
+    haloTimer = setTimeout(restHalo, 300);
+  }
+  // The class goes once the pulse ends, so the next rest can add it again.
+  trackRing.addEventListener('animationend', function () { trackEl.classList.remove('pulse'); });
+  map.on('moveend', function () {
+    if (trackEl.classList.contains('pulse') && !markerInOpen()) trackEl.classList.remove('pulse');
+  });
 
   // Night stops. Dark dots in their own pane so they sit on the lines and
   // under the moving marker. A tap jumps the scrubber to that fix.
@@ -1840,6 +2299,15 @@ body.sheet-open #dock::after { opacity: 1; }
       : spot.from_label + ' to ' + spot.to_label + ', ' + spot.nights + ' nights';
     if (spot.off) text += ', last fix before the device went off';
     dot.bindTooltip(text);
+    // The label fades in when it opens. A click closes and reopens it in
+    // one go (Leaflet closes tooltips on preclick), and fading that would
+    // blink a label that was already showing.
+    let tipClosedAt = -1e9;
+    dot.on('tooltipclose', function () { tipClosedAt = performance.now(); });
+    dot.on('tooltipopen', function (e) {
+      const node = e.tooltip.getElement();
+      if (canAnimate && node && performance.now() - tipClosedAt > 100) fadeIn(node, 0, 180);
+    });
     dot.on('click', function (e) {
       // Stopped here so the map does not also treat it as a tap on the line.
       L.DomEvent.stop(e);
@@ -1856,52 +2324,147 @@ body.sheet-open #dock::after { opacity: 1; }
   });
 
   let current = 0;
+  // How far the marker is from fix current towards the next, 0 to 1. Only
+  // playback sets it; every other move lands on a fix.
+  let currentFrac = 0;
+  let shownIndex = -1;
+  let shownDay = -1;
+  // Moves that jump somewhere else slide the chart cursor there; the rest
+  // follow a finger or the playback and must not trail behind it.
+  const JUMPS = { jump: true, night: true, map: true };
 
-  function setIndex(i, source) {
+  function setIndex(i, source, frac) {
     i = Math.max(0, Math.min(LAST, Math.round(Number(i) || 0)));
+    frac = i < LAST && frac > 0 ? Math.min(frac, 1) : 0;
     current = i;
+    currentFrac = frac;
     const p = points[i];
-    const day = TRIP.days[p[5]];
-    trackMarker.setLatLng(latlngs[i]);
-    trackEl.style.background = day.color;
-    readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
-    readWhen.style.setProperty('--day', day.color);
-    const atKm = source === 'slider' ? Number(slider.value) : p[4];
-    slider.style.setProperty('--pct', (atKm / totals.km * 100).toFixed(2) + '%');
-    readEle.textContent = fmtInt(p[2]) + ' m';
-    readKm.textContent = p[4].toLocaleString('en-CA', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km';
-    if (source !== 'slider') slider.value = String(Math.round(p[4]));
-    moveCursor(i);
+    let at = latlngs[i];
+    if (frac) {
+      const n = latlngs[i + 1];
+      at = [at[0] + (n[0] - at[0]) * frac, at[1] + (n[1] - at[1]) * frac];
+    }
+    trackMarker.setLatLng(at);
+    if (p[5] !== shownDay) {
+      shownDay = p[5];
+      const color = TRIP.days[shownDay].color;
+      trackEl.style.setProperty('--day', color);
+      readWhen.style.setProperty('--day', color);
+      // The route doubles back on itself, so the day being driven comes
+      // up over the dimmed days still ahead where they share a road. A
+      // picked day stays on top of the faded ones instead.
+      if (playing) {
+        if (selectedDay === null) raiseDays(shownDay, shownDay);
+        styleDays();
+      }
+    }
+    // The readout, slider and chart follow the last fix passed, so while
+    // the marker glides between two fixes they only change as it passes
+    // one. The slider is the exception: its thumb is the finger's.
+    if (i !== shownIndex || source === 'slider') {
+      shownIndex = i;
+      const day = TRIP.days[p[5]];
+      readWhen.textContent = day.label + ', ' + fmtTime.format(new Date(p[3] * 1000));
+      const atKm = source === 'slider' ? Number(slider.value) : p[4];
+      slider.style.setProperty('--pct', (atKm / totals.km * 100).toFixed(2) + '%');
+      readEle.textContent = fmtInt(p[2]) + ' m';
+      readKm.textContent = fmt1(p[4]) + ' km';
+      if (source !== 'slider') slider.value = String(Math.round(p[4]));
+      moveCursor(i, JUMPS[source] === true);
+    }
     // On load the map was just fitted to the whole track; a pan here would
     // nudge that fit by the difference between the two paddings. The pan
-    // is not animated because a 250ms animation restarted every 30ms tick
-    // never catches the marker, which then runs off the map while playing.
-    if (source !== 'init') map.panInside(latlngs[i], Object.assign({ animate: false }, panPadding()));
+    // is not animated: playback asks every frame, and an animated pan
+    // restarted every frame never catches the marker.
+    if (source !== 'init') map.panInside(at, panPadding());
+    if (source !== 'init' && source !== 'play') haloSoon();
   }
 
-  let timer = null;
-  function setPlaying(on) {
-    playBtn.classList.toggle('playing', on);
-    playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+  // Playback runs the whole trip in a minute at a steady speed along the
+  // road, one frame at a time, so a long day takes longer than a short
+  // one. Gaps over 6 hours, where the device was off, are crossed at once
+  // rather than drawn as a slow straight line, and so are fixes taken
+  // standing still. The loop only runs while playing.
+  const PLAY_MS = 60000;
+  const KM_PER_MS = totals.km / PLAY_MS;
+  const GAP_S = 6 * 3600;
+  let playing = false;
+  let playFrame = 0;
+  let playClock = null;
+  // Where the playhead really is. With less motion the marker shows the
+  // last fix passed, so the playhead keeps the part of the step it has
+  // covered, or it would start each frame over from the fix and never
+  // reach the next.
+  let playI = 0;
+  let playF = 0;
+  function playStep(t) {
+    playFrame = 0;
+    // A frame late after a hidden tab or a long task resumes where it was
+    // instead of leaping ahead.
+    const dt = playClock === null ? 0 : Math.max(0, Math.min(64, t - playClock));
+    playClock = t;
+    // A scrub or a tap during playback moved the marker; carry on from there.
+    if (current !== playI || (!reduceMotion && currentFrac !== playF)) {
+      playI = current;
+      playF = currentFrac;
+    }
+    let i = playI;
+    let f = playF;
+    let km = dt * KM_PER_MS;
+    while (km > 0 && i < LAST) {
+      const a = points[i];
+      const b = points[i + 1];
+      const len = b[4] - a[4];
+      if (b[3] - a[3] > GAP_S || len <= 0) { i += 1; f = 0; continue; }
+      const left = (1 - f) * len;
+      if (km < left) { f += km / len; km = 0; } else { km -= left; i += 1; f = 0; }
+    }
+    playI = i;
+    playF = f;
+    // With less motion the marker steps from fix to fix instead of gliding.
+    setIndex(i, 'play', reduceMotion ? 0 : f);
+    if (i >= LAST) stopPlay(); else playFrame = requestAnimationFrame(playStep);
   }
+  function setPlaying(on) {
+    playing = on;
+    motion('play', on);
+    playBtn.classList.toggle('playing', on);
+    trackEl.classList.toggle('playing', on);
+    playBtn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+    // Playing, the days driven so far sit above the days ahead; stopped,
+    // the days after the marker go back on top so the stacking is in date
+    // order again. With a day picked the stacking is left alone, so the
+    // picked day stays above the faded ones.
+    if (selectedDay === null) {
+      if (on) raiseDays(0, shownDay); else raiseDays(shownDay + 1, TRIP.days.length - 1);
+    }
+    styleDays();
+    if (on) trackEl.classList.remove('pulse'); else restHalo();
+  }
+  // Pause keeps the fraction between fixes, so play does not jump back to
+  // the last fix passed.
   function stopPlay() {
-    if (timer !== null) { clearInterval(timer); timer = null; }
-    setPlaying(false);
+    if (playFrame) { cancelAnimationFrame(playFrame); playFrame = 0; }
+    if (playing) setPlaying(false);
   }
   function startPlay() {
-    if (timer !== null) return;
+    if (playing) return;
     // Play at the end starts over; otherwise the button would do nothing.
     if (current >= LAST) setIndex(0, 'play');
-    timer = setInterval(function () {
-      setIndex(current + 1, 'play');
-      if (current >= LAST) stopPlay();
-    }, 30);
+    playI = current;
+    playF = currentFrac;
+    playClock = null;
     setPlaying(true);
+    playFrame = requestAnimationFrame(playStep);
   }
   playBtn.addEventListener('click', function () {
-    if (timer === null) startPlay(); else stopPlay();
+    if (playing) stopPlay(); else startPlay();
   });
   slider.addEventListener('input', function () { setIndex(nearestIndex(Number(slider.value)), 'slider'); });
+  slider.addEventListener('pointerdown', function () { motion('slide', true); });
+  ['pointerup', 'pointercancel', 'change'].forEach(function (type) {
+    slider.addEventListener(type, function () { motion('slide', false); });
+  });
   // A kilometre per arrow press would take several presses to reach the
   // next fix, so the arrows step one fix instead.
   slider.addEventListener('keydown', function (e) {
@@ -1930,6 +2493,11 @@ body.sheet-open #dock::after { opacity: 1; }
     if (p[2] < eleMin) eleMin = p[2];
     if (p[2] > eleMax) eleMax = p[2];
   });
+  // In em, so the reserved width follows the readout's size between the
+  // phone and desktop layouts.
+  readEle.textContent = fmtInt(eleMax) + ' m';
+  readEle.style.minWidth = (readEle.getBoundingClientRect().width /
+    (parseFloat(getComputedStyle(readEle).fontSize) || 12)).toFixed(3) + 'em';
   // The domain rounds out to the first step that gives at least 3 ticks
   // and no more than the plot has height for: 10px labels need about 18px
   // each, so a short phone chart gets 0, 1,000 and 2,000 m where the
@@ -1951,25 +2519,45 @@ body.sheet-open #dock::after { opacity: 1; }
   }
 
   let scale = null;
-  let cursorLine = null;
+  let cursorGroup = null;
   let cursorDot = null;
+  // Where the cursor was last put, as numbers: the transform read back
+  // from the style comes normalised ("67px, 0px") and never matches.
+  let cursorX = null;
+  let cursorY = null;
+  let cursorTimer = 0;
   let dayGroups = [];
   let pressed = false;
 
+  // The chart repeats the map: faded behind a picked day, dimmed ahead of
+  // the playing marker. A style, not the attribute, so it eases.
   function fadeChart() {
     dayGroups.forEach(function (g, d) {
-      g.setAttribute('opacity', selectedDay === null || d === selectedDay ? '1' : '0.3');
+      const look = dayLooks[d];
+      g.style.opacity = look === 'faded' ? '0.3' : look === 'ahead' ? String(AHEAD_OPACITY) : '1';
     });
   }
 
-  function moveCursor(i) {
+  // The cursor moves by transform, the line and the dot drawn at zero, so
+  // a jump can ease with a transition and a scrub can skip it.
+  function moveCursor(i, ease) {
     if (!scale) return;
-    const cx = scale.x(points[i][4]).toFixed(1);
-    const cy = scale.y(points[i][2]).toFixed(1);
-    cursorLine.setAttribute('x1', cx);
-    cursorLine.setAttribute('x2', cx);
-    cursorDot.setAttribute('cx', cx);
-    cursorDot.setAttribute('cy', cy);
+    const cx = Number(scale.x(points[i][4]).toFixed(1));
+    const cy = Number(scale.y(points[i][2]).toFixed(1));
+    // Only a move that really goes somewhere starts a transition, and so
+    // only that one will end with a transitionend. The timer is for a
+    // transition that ends neither way, so the glass cannot stay at rest.
+    const easing = !!ease && !reduceMotion && cursorX !== null && (cx !== cursorX || cy !== cursorY);
+    cursorGroup.classList.toggle('ease', easing);
+    if (easing) {
+      motion('cursor', true);
+      if (cursorTimer) clearTimeout(cursorTimer);
+      cursorTimer = setTimeout(function () { cursorTimer = 0; motion('cursor', false); }, 260);
+    }
+    cursorX = cx;
+    cursorY = cy;
+    cursorGroup.style.transform = 'translate(' + cx + 'px, 0)';
+    cursorDot.style.transform = 'translate(0, ' + cy + 'px)';
     cursorDot.setAttribute('fill', TRIP.days[points[i][5]].color);
   }
 
@@ -1997,6 +2585,10 @@ body.sheet-open #dock::after { opacity: 1; }
     const W = Math.round(chart.getBoundingClientRect().width);
     const H = Math.round(chart.getBoundingClientRect().height);
     if (W < 80 || H < 40) return;
+    // The hit rect under the pointer is about to go, and with it the
+    // pointerleave that would end the scrub.
+    motion('scrub', false);
+    motion('cursor', false);
     while (chart.firstChild) chart.removeChild(chart.firstChild);
     chart.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
@@ -2093,12 +2685,17 @@ body.sheet-open #dock::after { opacity: 1; }
     });
     chart.appendChild(days);
 
-    const cursor = svgEl('g', { class: 'cursor' });
-    cursorLine = svgEl('line', { x1: left, x2: left, y1: PAD.top, y2: PAD.top + plotH });
-    cursorDot = svgEl('circle', { r: 5, cx: left, cy: PAD.top });
-    cursor.appendChild(cursorLine);
-    cursor.appendChild(cursorDot);
-    chart.appendChild(cursor);
+    cursorGroup = svgEl('g', { class: 'cursor' });
+    cursorX = null;
+    cursorY = null;
+    ['transitionend', 'transitioncancel'].forEach(function (type) {
+      cursorGroup.addEventListener(type, function () { motion('cursor', false); });
+    });
+    cursorDot = svgEl('circle', { r: 5, cx: 0, cy: 0 });
+    cursorGroup.appendChild(svgEl('line', { x1: 0, x2: 0, y1: PAD.top, y2: PAD.top + plotH }));
+    cursorGroup.appendChild(cursorDot);
+    chart.appendChild(cursorGroup);
+    chartIntro(days, cursorGroup);
 
     // A transparent rect over the plot takes the pointer so the paths and
     // labels underneath never swallow a move or a tap.
@@ -2114,6 +2711,9 @@ body.sheet-open #dock::after { opacity: 1; }
     });
     hit.addEventListener('pointerup', function () { pressed = false; });
     hit.addEventListener('pointercancel', function () { pressed = false; });
+    // A scrub rewrites the readout and the cursor on every move.
+    hit.addEventListener('pointerenter', function () { motion('scrub', true); });
+    hit.addEventListener('pointerleave', function () { motion('scrub', false); });
     chart.appendChild(hit);
 
     fadeChart();
@@ -2133,8 +2733,240 @@ body.sheet-open #dock::after { opacity: 1; }
     window.addEventListener('resize', scheduleRender);
   }
 
+  // Load. The days draw themselves in order, each over a share of the
+  // time that matches its distance, so a long day takes longer to draw
+  // than a short one, and each eases in and out over its own share. The
+  // nights pop in as the line reaches them, End and the marker come last,
+  // then the chart draws. A pointerdown, wheel, keydown or zoomstart
+  // finishes the route and the chart at once; the panel's entrance is
+  // short and plays on.
+  const REVEAL_MS = 2600;
+  const CHART_MS = 800;
+  const POP_MS = 220;
+  const POP_EASE = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
+  let introStart = null;
+  let introAnims = [];
+  // The time, as a share of one ease-in-out run, at which it reaches a
+  // given share of the distance; found by bisection on the
+  // cubic-bezier(0.42, 0, 0.58, 1) that 'ease-in-out' stands for.
+  function revealTimeAt(share) {
+    const bez = function (t, a, b) { const u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; };
+    let lo = 0;
+    let hi = 1;
+    for (let k = 0; k < 24; k++) {
+      const mid = (lo + hi) / 2;
+      if (bez(mid, 0, 1) < share) lo = mid; else hi = mid;
+    }
+    return bez((lo + hi) / 2, 0.42, 0.58);
+  }
+  // A segment's slice of the reveal: from the share of the trip done when
+  // it starts to the share done when it ends.
+  function revealSpan(seg) {
+    const a = Math.min(1, points[seg[0]][4] / totals.km);
+    return [a, Math.min(1, Math.max(a, points[seg[1]][4] / totals.km))];
+  }
+  // When the pen reaches fix i, as a share of the reveal, on its
+  // segment's own ease.
+  function revealAt(i) {
+    for (let d = 0; d < TRIP.days.length; d++) {
+      const segs = TRIP.days[d].segments;
+      for (let s = 0; s < segs.length; s++) {
+        const seg = segs[s];
+        if (i < seg[0] || i > seg[1]) continue;
+        const span = revealSpan(seg);
+        const len = points[seg[1]][4] - points[seg[0]][4];
+        const share = len > 0 ? (points[i][4] - points[seg[0]][4]) / len : 1;
+        return span[0] + (span[1] - span[0]) * revealTimeAt(share);
+      }
+    }
+    return Math.min(1, points[i][4] / totals.km);
+  }
+  function pop(node, delay, ms) {
+    return node.animate([
+      { opacity: 0, transform: 'scale(0.4)' },
+      { opacity: 1, transform: 'scale(1)' }
+    ], { duration: ms || POP_MS, delay: delay, easing: POP_EASE, fill: 'backwards' });
+  }
+  function fadeIn(node, delay, ms) {
+    return node.animate([{ opacity: 0 }, { opacity: node.style.opacity || 1 }],
+      { duration: ms, delay: delay, easing: EASE_UI, fill: 'backwards' });
+  }
+  function startReveal() {
+    if (!canAnimate) return;
+    motion('intro', true);
+    introStart = document.timeline ? document.timeline.currentTime : null;
+    routeParts.forEach(function (part) {
+      const path = part.layer.getElement();
+      if (!path) return;
+      const span = revealSpan(part.seg);
+      const a = span[0];
+      const b = span[1];
+      // A lone fix, or a short day Leaflet has simplified to one pixel at
+      // this zoom: a dash has no length to hide there and the round cap
+      // would show as a dot, so it appears when the pen reaches it.
+      if (part.dot || path.getTotalLength() < 0.5) {
+        introAnims.push(path.animate([
+          { opacity: 0, offset: 0 }, { opacity: 0, offset: a },
+          { opacity: 1, offset: Math.min(1, a + 0.01) }, { opacity: 1, offset: 1 }
+        ], { duration: REVEAL_MS, fill: 'both' }));
+        return;
+      }
+      // A dash as long as the path and a gap twice that, pushed just past
+      // the start so not even a round cap shows, then pulled back in.
+      // pathLength makes that the same numbers for every path.
+      part.dashed = true;
+      path.setAttribute('pathLength', '1');
+      path.style.strokeDasharray = '1 2';
+      // The easing on a keyframe runs to the next one, so it eases this
+      // segment's slice only and leaves the times linear in distance.
+      introAnims.push(path.animate([
+        { strokeDashoffset: 1.01, offset: 0 }, { strokeDashoffset: 1.01, offset: a, easing: 'ease-in-out' },
+        { strokeDashoffset: 0, offset: b }, { strokeDashoffset: 0, offset: 1 }
+      ], { duration: REVEAL_MS, fill: 'both' }));
+    });
+    TRIP.nights.forEach(function (spot, k) {
+      const node = nightDots[k].getElement();
+      if (node) introAnims.push(pop(node, revealAt(spot.idx) * REVEAL_MS));
+    });
+    const startDot = startMarker.getElement();
+    const endDot = finishMarker.getElement();
+    const startTip = startMarker.getTooltip().getElement();
+    const endTip = finishMarker.getTooltip().getElement();
+    if (startDot) introAnims.push(pop(startDot, 0));
+    if (startTip) introAnims.push(fadeIn(startTip, 60, 240));
+    if (endDot) introAnims.push(pop(endDot, REVEAL_MS));
+    if (endTip) introAnims.push(fadeIn(endTip, REVEAL_MS + 40, 280));
+    // The halo waits for the dot, or a pulse would ring an empty spot.
+    const dotIn = pop(trackDot, REVEAL_MS + 200, 320);
+    introAnims.push(dotIn);
+    trackEl.classList.add('waiting');
+    dotIn.finished.then(function () {
+      trackEl.classList.remove('waiting');
+      restHalo();
+    }, function () {});
+    // A wheel, key or touch means the viewer wants the map now.
+    ['pointerdown', 'wheel', 'keydown'].forEach(function (type) {
+      window.addEventListener(type, finishReveal, { capture: true, passive: true });
+    });
+    map.on('zoomstart', finishReveal);
+  }
+  // Called once the chart has added its part, so the clean up waits for
+  // the last thing to finish.
+  function watchReveal() {
+    if (!introAnims.length) return;
+    Promise.all(introAnims.map(function (anim) { return anim.finished; })).then(cleanReveal, cleanReveal);
+  }
+  function finishReveal() {
+    introAnims.forEach(function (anim) { anim.finish(); });
+  }
+  // Leaflet redraws every path on each zoom and pan; the dash and the
+  // normalised length come off once the reveal is over so those redraws
+  // run on plain paths.
+  function cleanReveal() {
+    if (!introAnims.length) return;
+    introAnims.forEach(function (anim) { anim.cancel(); });
+    introAnims = [];
+    routeParts.forEach(function (part) {
+      const path = part.layer.getElement();
+      if (!path || !part.dashed) return;
+      part.dashed = false;
+      path.removeAttribute('pathLength');
+      path.style.strokeDasharray = '';
+    });
+    ['pointerdown', 'wheel', 'keydown'].forEach(function (type) {
+      window.removeEventListener(type, finishReveal, { capture: true, passive: true });
+    });
+    map.off('zoomstart', finishReveal);
+    motion('intro', false);
+  }
+  // The chart draws left to right once the route is down. render() runs
+  // again whenever the dock changes size, so each new set of day paths
+  // picks the animation up at the time it has reached.
+  // The cursor is the marker's twin, so it comes in with the marker rather
+  // than sit alone in the empty chart; opacity only, since its transform
+  // carries its position.
+  function chartIntro(node, cursor) {
+    if (introStart === null || !introAnims.length) return;
+    const anim = node.animate([
+      { clipPath: 'inset(-4px calc(100% + 4px) -4px -4px)' },
+      { clipPath: 'inset(-4px -4px -4px -4px)' }
+    ], { duration: CHART_MS, delay: REVEAL_MS, easing: 'cubic-bezier(0.45, 0, 0.25, 1)', fill: 'backwards' });
+    anim.startTime = introStart;
+    introAnims.push(anim);
+    const cur = cursor.animate([{ opacity: 0 }, { opacity: 1 }],
+      { duration: 320, delay: REVEAL_MS + 200, easing: EASE_UI, fill: 'backwards' });
+    cur.startTime = introStart;
+    introAnims.push(cur);
+  }
+
+  // The panel's sections rise into place one after another and the totals
+  // count up. On a phone the stats are in the closed sheet, so this waits
+  // for the first time the sheet opens.
+  const STAGGER_MS = 40;
+  const COUNT_MS = 1100;
+  let panelShown = false;
+  function panelIntro() {
+    if (panelShown) return;
+    panelShown = true;
+    if (!canAnimate) return;
+    motion('panel', true);
+    const phone = getComputedStyle(handle).display !== 'none';
+    const parts = (phone ? [] : [titleEl]).concat(
+      Array.prototype.slice.call(totalsEl.children),
+      [document.getElementById('days-head'), document.getElementById('days'), document.getElementById('provinces')]
+    );
+    parts.forEach(function (node, k) {
+      node.animate([
+        { opacity: 0, transform: 'translateY(8px)' },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 420, delay: k * STAGGER_MS, easing: EASE_UI, fill: 'backwards' });
+    });
+    countUp();
+  }
+  function countUp() {
+    // Each number is held at its final width first, so the count runs in
+    // place, right aligned against the unit.
+    counters.forEach(function (c) { c.width = c.node.getBoundingClientRect().width; });
+    totalsEl.classList.add('counting');
+    counters.forEach(function (c) {
+      c.node.style.minWidth = c.width + 'px';
+      c.node.textContent = c.fmt(0);
+    });
+    let t0 = null;
+    function frame(t) {
+      if (t0 === null) t0 = t;
+      const k = Math.min(1, (t - t0) / COUNT_MS);
+      const e = 1 - Math.pow(1 - k, 3);
+      counters.forEach(function (c) {
+        const text = k < 1 ? c.fmt(c.to * e) : c.text;
+        if (c.node.textContent !== text) c.node.textContent = text;
+      });
+      if (k < 1) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      counters.forEach(function (c) { c.node.style.minWidth = ''; });
+      totalsEl.classList.remove('counting');
+      motion('panel', false);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  startReveal();
   render();
+  watchReveal();
   setIndex(0, 'init');
+  restHalo();
+  // Desktop and tablet show the stats from the start. On a phone only the
+  // title pill is in view, and it settles in on its own.
+  if (getComputedStyle(handle).display === 'none') {
+    panelIntro();
+  } else if (canAnimate) {
+    titleEl.animate([
+      { opacity: 0, transform: 'translateY(-6px)' },
+      { opacity: 1, transform: 'none' }
+    ], { duration: 420, easing: EASE_UI, fill: 'backwards' });
+  }
 })();
 </script>
 </body>
