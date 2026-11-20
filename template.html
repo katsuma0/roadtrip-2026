@@ -1247,6 +1247,11 @@ body.sheet-open #dock::after { opacity: 1; }
    length most often ("1,412 m" to "47 m"), so it keeps the width of the
    highest value (set from the script) and the distance never shifts. */
 #readout .ele { text-align: right; }
+/* Room for "-10 \00b0C" so the km after it never shifts as the reading changes. */
+#readout .temp { min-width: 4.4em; }
+/* The narrowest phones have no room for a fourth number in the readout;
+   the day card still shows the day's high and low. */
+@media (max-width: 359px) { #readout .temp { display: none; } }
 
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
@@ -1708,6 +1713,7 @@ body.sheet-open #dock::after { opacity: 1; }
     <output id="readout" for="scrub" aria-live="off">
       <span id="readout-when" class="when"></span>
       <span id="readout-ele" class="ele"></span>
+      <span id="readout-temp" class="ele temp"></span>
       <span id="readout-km" class="km"></span>
     </output>
   </div>
@@ -2012,6 +2018,10 @@ body.sheet-open #dock::after { opacity: 1; }
   // The default prefix carries an inline flag icon from the library; the
   // credit stays, as text.
   map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+  // The Open Government Licence asks for the source to be named.
+  if (TRIP.wx_source) {
+    map.attributionControl.addAttribution('Weather from <a href="' + TRIP.wx_source.url + '">Environment Canada</a>');
+  }
   L.control.zoom({ position: 'topright' }).addTo(map);
   // Tiles load for the level a zoom or a fly lands on, not for every
   // level it passes: a day fly crosses three or four, and loading and
@@ -2764,9 +2774,16 @@ body.sheet-open #dock::after { opacity: 1; }
     } else {
       cardWhen.textContent = 'No driving';
     }
+    // The most common condition the stations reported while I drove.
+    if (day.wx && day.wx.desc) cardWhen.textContent += ', ' + day.wx.desc.toLowerCase().replace(/,/g, ' and ');
     while (cardStats.firstChild) cardStats.removeChild(cardStats.firstChild);
     [['Distance', fmt1(day.km) + ' km'], ['Moving', fmt1(day.moving_h) + ' h'],
-      ['Climbed', fmtInt(day.gain_m) + ' m'], ['Descended', fmtInt(day.loss_m) + ' m']].forEach(function (pair) {
+      ['Climbed', fmtInt(day.gain_m) + ' m'], ['Descended', fmtInt(day.loss_m) + ' m']].concat(
+      // Weather only where a station was close enough to say something.
+      day.wx ? [['High', day.wx.hi + ' \u00b0C'], ['Low', day.wx.lo + ' \u00b0C']]
+        .concat(day.wx.precip_mm !== null ? [['Rain', fmt1(day.wx.precip_mm) + ' mm']] : [])
+        .concat(day.wx.wind_max !== null ? [['Wind up to', fmtInt(day.wx.wind_max) + ' km/h']] : []) : []
+    ).forEach(function (pair) {
       const item = el('div');
       item.appendChild(el('dt', '', pair[0]));
       const dd = el('dd');
@@ -3159,6 +3176,9 @@ body.sheet-open #dock::after { opacity: 1; }
   const playBtn = document.getElementById('play');
   const readWhen = document.getElementById('readout-when');
   const readEle = document.getElementById('readout-ele');
+  const readTemp = document.getElementById('readout-temp');
+  const WX = TRIP.wx || [];
+  const DEG = ' \u00b0C';
   const readKm = document.getElementById('readout-km');
   // The slider runs on the chart's scale, kilometres, so its thumb and
   // the chart cursor above it stay together along the whole trip.
@@ -3250,6 +3270,7 @@ body.sheet-open #dock::after { opacity: 1; }
       ? 'Night of ' + spot.from_label
       : spot.from_label + ' to ' + spot.to_label + ', ' + spot.nights + ' nights';
     if (spot.off) text += ', last fix before the device went off';
+    if (spot.low !== null && spot.low !== undefined) text += ', low ' + spot.low + ' \u00b0C';
     dot.bindTooltip(text);
     // The label fades in when it opens. A click closes and reopens it in
     // one go (Leaflet closes tooltips on preclick), and fading that would
@@ -3329,6 +3350,8 @@ body.sheet-open #dock::after { opacity: 1; }
       const atKm = source === 'slider' ? Number(slider.value) : p[4];
       slider.style.setProperty('--pct', (atKm / totals.km * 100).toFixed(2) + '%');
       readEle.textContent = fmtInt(p[2]) + ' m';
+      // Blank where no station was close enough, rather than a guess.
+      readTemp.textContent = WX[i] ? Math.round(WX[i][0]) + DEG : '';
       readKm.textContent = fmt1(p[4]) + ' km';
       if (source !== 'slider') slider.value = String(Math.round(p[4]));
       moveCursor(i, JUMPS[source] === true);

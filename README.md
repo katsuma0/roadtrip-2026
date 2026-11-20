@@ -35,3 +35,11 @@ Each point in the GPX carries lat, lon, ele and time and nothing else. The inRea
     python tools/kml_to_gpx.py feed.kml data/inreach-sep-oct-2026.gpx "inReach track, Sep to Oct 2026"
 
 The GPX holds 1,557 points over 34 days, six of them repeats, and most of the rest are ten minutes apart.
+
+## Weather
+
+Weather comes from Environment and Climate Change Canada's archived hourly station data, under the Open Government Licence - Canada. Each fix takes the reading from the nearest station within 80 km and an hour of it; 1,422 of the 1,544 fixes have one, from 97 stations. A station in a valley can read warmer than the road over the pass above it. The readings live in data/weather.json, so the build never goes online. To fetch them again:
+
+    python tools/fetch_weather.py
+
+It caches every response under tools/.weather-cache, so a second run is quick.
