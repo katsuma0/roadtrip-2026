@@ -2904,7 +2904,7 @@ body.sheet-open #dock::after { opacity: 1; }
       statsBox.addEventListener('scrollend', done);
       // Not every browser sends scrollend, and a scroll already at its
       // target sends none.
-      timer = setTimeout(done, 700);
+      timer = setTimeout(done, 1000);
       cardWait = function () { statsBox.removeEventListener('scrollend', done); clearTimeout(timer); };
       return;
     }
