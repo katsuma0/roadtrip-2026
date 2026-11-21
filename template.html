@@ -1176,6 +1176,10 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   background: linear-gradient(to right, var(--share) 0 calc(var(--share-of, 0) * 100%), var(--track) 0);
 }
 #provinces dd { grid-column: 3; }
+/* At 320px a 72px meter would wrap "British Columbia" onto two lines. */
+@container panel (max-width: 319px) {
+  #provinces dl > div { grid-template-columns: minmax(0, 1fr) 48px 64px; }
+}
 @media (pointer: fine) {
   #provinces dl > div { min-height: 36px; }
 }
@@ -1584,6 +1588,11 @@ body.sheet-open #dock::after { opacity: 1; }
     grid-template-areas: "chart chart" "play read" "play scrub";
     padding-bottom: 4px;
   }
+  /* Beside the play button the readout has a phone's width less 80px, so
+     the dividers sit closer and the temperature goes, as on the narrowest
+     phones; the day card still has the day's high and low. */
+  #readout > span + span { margin-left: 8px; padding-left: 8px; }
+  #readout .temp { display: none; }
   /* The strip of map left above the open sheet is too short for both the
      zoom buttons and the attribution; pinch still zooms. */
   body.sheet-open .leaflet-control-zoom { visibility: hidden; }
@@ -1958,6 +1967,11 @@ body.sheet-open #dock::after { opacity: 1; }
     text-align: right;
   }
 }
+/* A hair tighter on 360px phones, which miss the one line by a few
+   pixels; at 320 the credits take two lines, right aligned. */
+@media (max-width: 379px) {
+  .leaflet-container .leaflet-control-attribution { letter-spacing: -0.015em; }
+}
 @media (hover: hover) {
   .leaflet-container .leaflet-control-attribution a:hover { color: var(--text); }
 }
@@ -2322,16 +2336,17 @@ body.sheet-open #dock::after { opacity: 1; }
     const p = map.latLngToContainerPoint(at);
     const bottom = size.y - o.bottom - o.attrib;
     if (p.x >= o.left + 48 && p.x <= size.x - Math.max(48, o.right + 16) &&
-        p.y >= o.top + 48 && p.y <= bottom - 48) return;
+        p.y >= o.top + 48 && p.y <= bottom - 48) return false;
     const c = L.point((o.left + size.x - o.right) / 2, (o.top + bottom) / 2);
     const target = map.containerPointToLatLng(size.divideBy(2).add(p.subtract(c)));
     if (reduceMotion) {
       map.setView(target, map.getZoom(), { animate: false });
-      return;
+      return false;
     }
     map.flyTo(target, map.getZoom(), { duration: Math.min(0.9, 0.45 + p.distanceTo(c) / 3000) });
     // The halo waits for the map to stop, or it rings a moving spot.
     map.once('moveend', haloSoon);
+    return true;
   }
   // Selecting a day flies there instead of jumping, unless the viewer
   // asked for less motion.
@@ -3928,6 +3943,11 @@ body.sheet-open #dock::after { opacity: 1; }
     if (haloTimer) clearTimeout(haloTimer);
     haloTimer = setTimeout(restHalo, 300);
   }
+  // A ring already going, or one asked for, stops until the map lands.
+  function restHaloLater() {
+    if (haloTimer) { clearTimeout(haloTimer); haloTimer = 0; }
+    trackEl.classList.remove('pulse');
+  }
   // The class goes once the pulse ends, so the next rest can add it again.
   trackRing.addEventListener('animationend', function () { trackEl.classList.remove('pulse'); });
   map.on('moveend', function () {
@@ -4052,8 +4072,8 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   function beat(nodes, hold) {
     beats.push({ nodes: nodes, hold: hold || BEAT_MS });
-    if (!beatTimer && !beatOut) { nextBeat(); return; }
-    if (!beatTimer) return;
+    // Nothing up, or the last one on its way out: this one shows now.
+    if (!beatTimer) { nextBeat(); return; }
     clearTimeout(beatTimer);
     beatTimer = setTimeout(nextBeat, Math.max(0, BEAT_READ_MS - (performance.now() - beatShownAt)));
   }
@@ -4185,9 +4205,12 @@ body.sheet-open #dock::after { opacity: 1; }
     // restarted every frame never catches the marker. A pick puts the
     // marker on its day while the map flies to fit that day, and a pan
     // would cut the fly short.
-    if (JUMPS[source]) bringIntoView(at);
+    // A jump that flies rings the halo when the fly lands instead.
+    let flying = false;
+    if (JUMPS[source]) flying = bringIntoView(at);
     else if (source !== 'init' && source !== 'select') map.panInside(at, panPadding());
-    if (source !== 'init' && source !== 'play') haloSoon();
+    if (flying) restHaloLater();
+    else if (source !== 'init' && source !== 'play') haloSoon();
   }
 
   // Playback runs the whole trip in a minute at a steady speed along the
@@ -4837,6 +4860,9 @@ body.sheet-open #dock::after { opacity: 1; }
     const fromY = scale && zoomG ? shownYDom() : yDom;
     xDom = to;
     if (!scale || !zoomG) return;
+    // A hover label left from before would point at a spot the new range
+    // has moved, or taken out of view; the next pointer move brings it back.
+    hideHover();
     // Ticks still fading in from a zoom cut short fade out from where they
     // got to, not from full strength, or stepping days quickly would flash
     // every half faded label before it goes.
