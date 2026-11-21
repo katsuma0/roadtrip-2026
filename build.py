@@ -392,7 +392,7 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
         add("longest_day", "Longest day", "%s km" % format(days[d]["km"], ",.1f"), d)
     d = pick(moving, lambda d: days[d]["moving_h"])
     if d is not None:
-        add("longest_wheel", "Longest at the wheel", "%.1f h" % days[d]["moving_h"], d)
+        add("longest_wheel", "Most hours", "%.1f h" % days[d]["moving_h"], d)
     d = pick(moving, lambda d: days[d]["gain_m"])
     if d is not None:
         add("most_climbing", "Most climbing", "%s m" % format(days[d]["gain_m"], ",d"), d)
