@@ -97,9 +97,20 @@
   --shadow-float:
     0 1px 2px rgba(16, 24, 64, 0.06),
     0 8px 24px rgba(16, 24, 64, 0.08),
-    0 24px 56px rgba(16, 24, 64, 0.10);
+    0 24px 56px rgba(16, 24, 64, 0.10),
+    0 48px 96px -32px rgba(16, 24, 64, 0.12);
   --shadow-chip: 0 1px 2px rgba(16, 24, 64, 0.08), 0 4px 12px rgba(16, 24, 64, 0.08);
   --thumb-shadow: 0 1px 3px rgba(16, 24, 64, 0.22);
+  /* A card under a mouse rises a little, so its shadow reaches further. */
+  --shadow-lift: 0 2px 4px rgba(16, 24, 64, 0.06), 0 10px 24px -6px rgba(16, 24, 64, 0.16);
+  /* Light from above: a faint white wash down the top of each glass
+     surface, the same over the blurred and the solid fill so the swap
+     between them still does not show. */
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  /* What the open sheet throws on the map above it. */
+  --sheet-shade: 0 -10px 36px -6px rgba(16, 24, 64, 0.22), 0 -2px 10px rgba(16, 24, 64, 0.06);
+  /* The edge under a header that the list scrolls beneath. */
+  --lift-shade: rgba(16, 24, 64, 0.07);
 
   --map-bg: #e3e2df;
   --casing: #ffffff;
@@ -119,6 +130,13 @@
   --gut: 16px;
   --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  /* A press goes down fast and comes back past where it started before
+     it settles, the way a key springs back under a finger. */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* The same, gentler, for things that travel: the sliding pill, and
+     the sheet when it opens. */
+  --spring-soft: cubic-bezier(0.3, 1.25, 0.5, 1);
+  --spring-sheet: cubic-bezier(0.3, 1.12, 0.42, 1);
 
   /* The open sheet height, here so the script can read the final height
      from a probe the moment the sheet starts to open. The handle, dock and
@@ -161,14 +179,19 @@
     --glass: rgba(28, 29, 34, 0.86);
     --glass-pill: rgba(28, 29, 34, 0.72);
     --glass-solid: #1f2025;
-    --glass-edge: rgba(255, 255, 255, 0.07);
+    --glass-edge: rgba(255, 255, 255, 0.09);
     --surface: #2a2b31;
     --shadow-float:
       0 1px 2px rgba(0, 0, 0, 0.30),
       0 8px 24px rgba(0, 0, 0, 0.32),
-      0 24px 56px rgba(0, 0, 0, 0.40);
+      0 24px 56px rgba(0, 0, 0, 0.40),
+      0 48px 96px -32px rgba(0, 0, 0, 0.36);
     --shadow-chip: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.30);
     --thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.30), 0 12px 28px -6px rgba(0, 0, 0, 0.55);
+    --glass-sheen: rgba(255, 255, 255, 0.035);
+    --sheet-shade: 0 -10px 36px -6px rgba(0, 0, 0, 0.55), 0 -2px 10px rgba(0, 0, 0, 0.25);
+    --lift-shade: rgba(0, 0, 0, 0.28);
 
     --map-bg: #141518;
     --casing: #111216;
@@ -210,14 +233,19 @@
   --glass: rgba(28, 29, 34, 0.86);
   --glass-pill: rgba(28, 29, 34, 0.72);
   --glass-solid: #1f2025;
-  --glass-edge: rgba(255, 255, 255, 0.07);
+  --glass-edge: rgba(255, 255, 255, 0.09);
   --surface: #2a2b31;
   --shadow-float:
     0 1px 2px rgba(0, 0, 0, 0.30),
     0 8px 24px rgba(0, 0, 0, 0.32),
-    0 24px 56px rgba(0, 0, 0, 0.40);
+    0 24px 56px rgba(0, 0, 0, 0.40),
+    0 48px 96px -32px rgba(0, 0, 0, 0.36);
   --shadow-chip: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.30);
   --thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.30), 0 12px 28px -6px rgba(0, 0, 0, 0.55);
+  --glass-sheen: rgba(255, 255, 255, 0.035);
+  --sheet-shade: 0 -10px 36px -6px rgba(0, 0, 0, 0.55), 0 -2px 10px rgba(0, 0, 0, 0.25);
+  --lift-shade: rgba(0, 0, 0, 0.28);
 
   --map-bg: #141518;
   --casing: #111216;
@@ -265,12 +293,12 @@ body {
    the title pill. Each blurred layer is repainted whenever the map moves
    under it, so the map controls, tooltips and table header stay solid. */
 .glass, body::before {
-  background: var(--glass);
+  background: linear-gradient(var(--glass-sheen), transparent 72px), var(--glass);
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
   box-shadow: var(--shadow-float), inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--hairline);
 }
-#title.glass { background: var(--glass-pill); }
+#title.glass { background: linear-gradient(var(--glass-sheen), transparent 80%), var(--glass-pill); }
 
 #map {
   grid-row: 1 / -1;
@@ -307,6 +335,23 @@ body::before {
   border-radius: var(--r-sheet);
   pointer-events: none;
 }
+/* The shadow the sheet throws up onto the map, deeper the higher it
+   rides: a layer of its own under the sheet whose opacity follows it,
+   so the shadow grows without a shadow being repainted every frame.
+   Over the map (later in the tree at the same level) and under the
+   sheet's surface. */
+#sheet-shade {
+  grid-column: 2;
+  grid-row: 2 / 5;
+  z-index: 0;
+  border-radius: var(--r-sheet);
+  box-shadow: var(--sheet-shade);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s var(--ease-sheet);
+}
+body.sheet-open #sheet-shade { opacity: 1; }
+body.sheet-dragging #sheet-shade { transition: none; }
 
 #title {
   position: absolute;
@@ -338,9 +383,14 @@ body::before {
   height: 26px;
   padding: 5px;
   border-radius: 50%;
-  background: var(--accent);
+  /* A soft light from the top left and a little shade at the foot, so
+     the badge reads as a small lit object rather than a flat disc. */
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(330deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 60%),
+    var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 1px 2px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 2px var(--accent-glow), 0 4px 10px -2px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 .mark path { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .mark circle { fill: currentColor; }
@@ -381,8 +431,9 @@ body::before {
   background: var(--track);
   transition: background-color 0.15s var(--ease), transform 0.2s var(--ease);
 }
-/* The grip widens a little under the finger, so a drag reads as taken. */
-body.sheet-dragging #handle .grip { background: var(--faint); transform: scaleX(1.18); }
+/* The grip widens a little under the finger, so a drag reads as taken,
+   and a press shows it before the finger has moved. */
+body.sheet-dragging #handle .grip, #handle:active .grip { background: var(--faint); transform: scaleX(1.18); }
 /* The closed sheet carries the trip's number, or the picked day, on the
    left; the two share one place and cross fade. */
 #handle .lead { display: grid; align-items: center; min-width: 0; padding-top: 8px; }
@@ -397,16 +448,40 @@ body.sheet-dragging #handle .grip { background: var(--faint); transform: scaleX(
 }
 /* Empty until the script fills it, so a failed load shows no stray unit. */
 #handle .sum[hidden] { display: none; }
+/* The trip's distance is the phone's hero, so the closed sheet leads with
+   it at a size that reads at a glance. */
 #handle .sum b {
   color: var(--text);
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  line-height: 1;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
 }
 #handle .sum b .n { display: inline-block; text-align: right; }
-#handle .sum small { margin-left: 2px; color: var(--muted); font-size: 11px; font-weight: 550; letter-spacing: 0; }
+#handle .sum small { margin-left: 3px; color: var(--muted); font-size: 12px; font-weight: 550; letter-spacing: 0; }
 #handle .sum .days { color: var(--muted); font-size: 12px; font-weight: 500; }
+/* Each day's distance as a bar, the shape of the trip beside its total.
+   Neutral, with the day the marker is on in its colour, so the bars tick
+   along with playback the way the calendar does. */
+#handle .spark {
+  flex: none;
+  align-self: center;
+  width: 66px;
+  height: 16px;
+  overflow: visible;
+}
+#handle .spark rect { fill: var(--faint); opacity: 0.55; transform-box: fill-box; transform-origin: 50% 100%; transition: opacity 0.2s var(--ease); }
+#handle .spark rect.on { fill: var(--day); opacity: 1; }
+/* Under 380px the day count goes, and under 360px the words beside the
+   chevron step out of sight (they stay the button's name), so the total
+   and the bars keep one line. */
+@media (max-width: 379px) {
+  #handle .sum .days { display: none; }
+}
+@media (max-width: 359px) {
+  #handle .handle-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 #handle .pick { align-items: center; }
 #handle .pick .key { flex: none; width: 16px; height: 4px; border-radius: 2px; background: var(--day, var(--accent)); }
 #handle .pick-day { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: 13px; font-weight: 600; }
@@ -442,12 +517,12 @@ body.day-picked:not(.sheet-open) #handle .pick { opacity: 1; visibility: visible
   color: var(--muted);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s, background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s, background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 body.day-picked:not(.sheet-open) #handle-clear {
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.2s var(--ease), visibility 0s, background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: opacity 0.2s var(--ease), visibility 0s, background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 #handle .chev {
   width: 10px;
@@ -458,7 +533,7 @@ body.day-picked:not(.sheet-open) #handle-clear {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 0.45s var(--ease-sheet);
+  transition: transform 0.5s var(--spring-sheet);
 }
 body.sheet-open #handle .chev { transform: rotate(180deg); }
 #handle:active { color: var(--text); }
@@ -512,11 +587,24 @@ body.sheet-open #handle .chev { transform: rotate(180deg); }
   transition: height 0.45s var(--ease-sheet), visibility 0s linear 0.45s;
   container: panel / inline-size;
 }
+/* The scrollbar is a quiet thumb that darkens while the pointer is over
+   the list. Browsers that only know the older pseudo elements (Safari)
+   get the same thumb, inset from the rounded corners. */
+@media (hover: hover) {
+  #stats:hover { scrollbar-color: var(--faint) transparent; }
+}
+#stats::-webkit-scrollbar { width: 10px; }
+#stats::-webkit-scrollbar-track { margin: 14px 0; background: transparent; }
+#stats::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 10px; background: var(--track); background-clip: padding-box; }
+#stats:hover::-webkit-scrollbar-thumb { background-color: var(--faint); }
 body.sheet-open #stats {
   height: var(--sheet-open);
   overflow: auto;
   visibility: visible;
-  transition: height 0.45s var(--ease-sheet), visibility 0s;
+  /* Opening carries on a few pixels past the open height and settles
+     back, so the sheet lands rather than stops. Closing has nothing
+     under zero to spring into, so it keeps the plain ease. */
+  transition: height 0.5s var(--spring-sheet), visibility 0s;
   -webkit-overflow-scrolling: touch;
 }
 /* While a finger drags the handle the height is set from the script on
@@ -564,7 +652,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 }
 /* While the totals count up each number keeps the width of its final
    value, right aligned, so the unit beside it never moves. */
-#totals.counting .num { display: inline-block; text-align: right; }
+#totals.counting .num, .rec.counting .num { display: inline-block; text-align: right; }
 #totals .unit {
   margin-left: 0.14em;
   font-size: 0.65em;
@@ -582,6 +670,9 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   line-height: 1.05;
   letter-spacing: -0.035em;
 }
+/* At this size the side bearing of the first digit shows as a gap, so
+   the big figures step left by it and line up with the label's edge. */
+#totals .hero dd, .dc-stats .dc-hero dd { margin-left: -0.045em; font-kerning: normal; text-rendering: optimizeLegibility; }
 #totals .hero .unit { font-size: 0.42em; margin-left: 0.22em; font-weight: 550; }
 #totals .pairs, .places {
   display: grid;
@@ -606,7 +697,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   padding: 12px;
   border-radius: var(--r-md);
   box-shadow: inset 0 0 0 1px var(--hairline);
-  transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.42s var(--spring);
 }
 .place dt { margin: 0 0 3px; }
 .place .go {
@@ -653,6 +744,25 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
     box-shadow: inset 0 0 0 1px var(--accent);
   }
   .place:hover .go { stroke: var(--accent); transform: translate(1px, -1px); }
+}
+/* With a mouse the card under it lifts a little and its shadow reaches
+   further. The shadow is a layer of its own that fades in, so the hover
+   moves only a transform and an opacity. An outer shadow is not drawn
+   under the box itself, so the layer can sit over the card's content. */
+.place::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--shadow-lift);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .place:hover { transform: translateY(-2px); }
+  .place:hover::after { opacity: 1; }
+  .place:active { transform: scale(0.97); }
 }
 
 /* Records. The same tappable cards as the places, with the value large
@@ -749,7 +859,9 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
     text-align: right;
   }
   #records .place .go { top: 50%; bottom: auto; margin-top: -7px; }
-  #records .place:active { transform: none; }
+  /* Rows of one grouped list stay in line: no lift, no press scale. */
+  #records .place:active, #records .place:hover { transform: none; }
+  #records .place::after { display: none; }
   /* The accent edge still marks the row under the pointer or the focus. */
   #records .place:has(.jump:focus-visible),
   #records .place + .place:has(.jump:focus-visible) { box-shadow: inset 0 0 0 1px var(--accent); }
@@ -821,7 +933,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease), opacity 0.15s var(--ease);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.42s var(--spring), opacity 0.15s var(--ease);
 }
 .icon-btn svg {
   width: 14px;
@@ -831,6 +943,14 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 0.36s var(--spring);
+}
+/* Under a mouse each chevron leans the way it goes, and a close turns
+   a quarter, so the glyph says what the press will do. */
+@media (hover: hover) and (pointer: fine) {
+  #dc-prev:not([aria-disabled="true"]):hover svg, #pv-prev:not([aria-disabled="true"]):hover svg { transform: translateX(-1.5px); }
+  #dc-next:not([aria-disabled="true"]):hover svg, #pv-next:not([aria-disabled="true"]):hover svg { transform: translateX(1.5px); }
+  #dc-close:hover svg, #handle-clear:hover svg, #keys-close:hover svg { transform: rotate(90deg); }
 }
 @media (hover: hover) {
   .icon-btn:hover { background: var(--row-hover); color: var(--accent); }
@@ -1043,7 +1163,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.15s var(--ease);
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 @media (hover: hover) {
   #days-more:hover { background: var(--accent-soft); border-color: transparent; }
@@ -1058,7 +1178,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform 0.3s var(--ease);
+  transition: transform 0.42s var(--spring);
 }
 #days-more[aria-expanded="true"] svg { transform: rotate(180deg); }
 #days {
@@ -1107,7 +1227,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   gap: 3px;
   min-height: 36px;
   width: 100%;
-  transition: color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 #days th:first-child button { justify-content: flex-start; padding-left: var(--gut); }
 #days th:last-child button { padding-right: var(--gut); }
@@ -1269,15 +1389,26 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   border-top: 1px solid var(--hairline);
 }
 /* The meter sits between the name and the hours, on one line with both,
-   so the five provinces read as a short bar chart. */
-#provinces dl > div::after {
-  content: "";
+   so the five provinces read as a short bar chart. The share is an
+   element of its own over the track so it can grow from the left by a
+   transform when the list comes into view. */
+#provinces .meter {
   grid-column: 2;
   grid-row: 1;
+  display: block;
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--share) 0 calc(var(--share-of, 0) * 100%), var(--track) 0);
+  background: var(--track);
+  overflow: hidden;
+}
+#provinces .meter i {
+  display: block;
+  width: calc(var(--share-of, 0) * 100%);
+  height: 100%;
+  border-radius: 2px;
+  background: var(--share);
+  transform-origin: left center;
 }
 #provinces dd { grid-column: 3; }
 /* At 320px a 72px meter would wrap "British Columbia" onto two lines. */
@@ -1405,7 +1536,8 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   grid-column: 2;
   grid-row: 3;
   position: relative;
-  z-index: 2;
+  /* Above the stats, so the shade under it falls on the list. */
+  z-index: 3;
   min-width: 0;
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
@@ -1431,6 +1563,25 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   transition: opacity 0.2s var(--ease);
 }
 body.sheet-open #dock::after { opacity: 1; }
+/* And once the stats scroll, a soft shade under that hairline, deeper
+   further down, so the dock reads as lying over the list. */
+#dock::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 12px;
+  background: linear-gradient(var(--lift-shade), rgba(0, 0, 0, 0));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease);
+}
+/* Only while there is a list under the dock: closed, the shade would
+   reach past the foot of the page and give it something to scroll. */
+body:not(.sheet-open) #dock::before { display: none; }
+body.sheet-open.panel-scrolled #dock::before { opacity: 0.6; }
+body.sheet-open.panel-deep #dock::before { opacity: 1; }
 #scrubber { display: contents; }
 #chart {
   grid-area: chart;
@@ -1510,20 +1661,27 @@ body.sheet-open #dock::after { opacity: 1; }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s var(--ease), box-shadow 0.15s var(--ease), filter 0.15s var(--ease);
+  transition: transform 0.42s var(--spring), box-shadow 0.15s var(--ease), filter 0.15s var(--ease);
 }
 @media (hover: hover) {
   #play:hover { filter: brightness(1.08); box-shadow: 0 1px 2px var(--accent-glow), 0 6px 18px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
 }
 #play:active { transform: scale(0.96); }
 #play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-#play svg { width: 14px; height: 14px; fill: currentColor; }
-/* The triangle's visual centre sits left of its box, so it moves a pixel
+#play svg { width: 14px; height: 14px; fill: currentColor; overflow: visible; }
+/* Play turns into pause rather than swapping: the triangle spins down
+   and fades as the two bars spin up into its place, and back. The
+   triangle's visual centre sits left of its box, so it rests a pixel
    right to look centred in the circle. */
+#play .icon-play, #play .icon-pause {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.34s var(--spring), opacity 0.16s var(--ease);
+}
 #play .icon-play { transform: translateX(1px); }
-#play .icon-pause { display: none; }
-#play.playing .icon-play { display: none; }
-#play.playing .icon-pause { display: block; }
+#play .icon-pause { opacity: 0; transform: rotate(-90deg) scale(0.3); }
+#play.playing .icon-play { opacity: 0; transform: translateX(1px) rotate(90deg) scale(0.3); }
+#play.playing .icon-pause { opacity: 1; transform: none; }
 
 /* Slider drawn by hand so the filled part of the track carries the accent;
    --pct comes from setIndex. Firefox has a native progress part instead.
@@ -1705,6 +1863,8 @@ body.sheet-open #dock::after { opacity: 1; }
   #handle { height: 26px; }
   #handle .grip { display: none; }
   #handle .lead, #handle .tail { padding-top: 0; }
+  #handle .sum b { font-size: 16px; }
+  #handle .spark { height: 12px; }
   #handle-clear { width: 32px; height: 26px; margin-top: 0; border-radius: 13px; }
   /* The pill is drawn small to fit the 26px row; the finger still gets
      40 by 40, which also keeps a tap a little low off the chart. */
@@ -1762,7 +1922,26 @@ body.sheet-open #dock::after { opacity: 1; }
     height: 1px;
     background: var(--hairline);
   }
-  #handle, #handle-clear { display: none; }
+  /* Under the hairline a short frosted edge, the glass fading the first
+     rows out with a faint shade below it, so the list reads as passing
+     under the header. It deepens once the list is well down. Drawn over
+     the stats, so the title sits a layer above them. */
+  #title { z-index: 3; }
+  #title::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 16px;
+    background: linear-gradient(var(--glass-solid), rgba(0, 0, 0, 0) 75%), linear-gradient(var(--lift-shade), rgba(0, 0, 0, 0));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s var(--ease);
+  }
+  body.panel-scrolled #title::before { opacity: 0.6; }
+  body.panel-deep #title::before { opacity: 1; }
+  #handle, #handle-clear, #sheet-shade { display: none; }
   #stats, body.sheet-open #stats {
     grid-column: 2;
     height: auto;
@@ -1780,12 +1959,12 @@ body.sheet-open #dock::after { opacity: 1; }
     column-gap: 16px;
     padding: 4px var(--gut) 16px;
     border-radius: var(--r-card);
-    background: var(--glass);
+    background: linear-gradient(var(--glass-sheen), transparent 72px), var(--glass);
     -webkit-backdrop-filter: var(--blur);
     backdrop-filter: var(--blur);
     box-shadow: var(--shadow-float), inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--hairline);
   }
-  #dock::after { display: none; }
+  #dock::after, #dock::before { display: none; }
   #dock.wide {
     grid-template-rows: 34px 104px 48px;
     grid-template-areas: "read read read" "chart chart chart" "play rate scrub";
@@ -1894,7 +2073,7 @@ body.sheet-open #dock::after { opacity: 1; }
    small enough to keep its blur. */
 @media (min-width: 768px) {
   body.glass-rest::before, body.glass-rest #dock {
-    background: var(--glass-solid);
+    background: linear-gradient(var(--glass-sheen), transparent 72px), var(--glass-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -1905,11 +2084,24 @@ body.sheet-open #dock::after { opacity: 1; }
    draw the day keys and the slider track. */
 @media (forced-colors: active) {
   #days td:first-child, #days td:last-child { border-color: Canvas; }
-  .day-row .swatch, .kmbar i, .prov-key, .pv .blk, .place .when .swatch, .dc-kicker .swatch { forced-color-adjust: none; }
+  .day-row .swatch, .kmbar i, .prov-key, .pv .blk, .place .when .swatch, .dc-kicker .swatch,
+  #provinces .meter, #provinces .meter i, #handle .spark rect { forced-color-adjust: none; }
   #scrub::-webkit-slider-runnable-track { background: CanvasText; }
   #scrub::-moz-range-track { background: CanvasText; }
   #scrub::-moz-range-progress { background: Highlight; }
 }
+
+/* A press goes down quickly; the slower spring in each rule above is for
+   the way back up. */
+.icon-btn:active, #handle-clear:active, .place:active, #days-more:active, #days th button:active, #play:active,
+.leaflet-bar a:active, .leaflet-bar button:active, .seg button:active, #rate:active, .cal-day:active {
+  transition-duration: 0.1s;
+}
+
+/* While the day card swaps one day for the next, the leaving day slides
+   out under the card's edge rather than over the panel. */
+#daycard.swapping { overflow: hidden; }
+.dc-ghost { position: absolute; margin: 0; pointer-events: none; }
 
 /* Every transition and animation collapses to an instant change. 0.01ms
    rather than none so transitionend still fires after the sheet moves. */
@@ -2049,7 +2241,7 @@ body.sheet-open #dock::after { opacity: 1; }
   background: transparent;
   color: var(--text);
   border-bottom: 0;
-  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 /* An inset divider rather than a full width border, so the two halves
    read as one control. */
@@ -2210,7 +2402,10 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
   background: var(--surface);
   box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
   transform: translateX(var(--x, 0px));
-  transition: transform 0.24s var(--ease), width 0.24s var(--ease);
+  /* It runs a hair past the option and settles back onto it. The width
+     moves with it: one small absolutely placed box, so the layout it
+     costs is its own and only for the moment of a change. */
+  transition: transform 0.36s var(--spring-soft), width 0.36s var(--spring-soft);
   pointer-events: none;
 }
 .seg.still .thumb { transition: none; }
@@ -2231,7 +2426,7 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 .seg button[aria-pressed="true"] { color: var(--text); cursor: default; }
 @media (hover: hover) {
@@ -2275,10 +2470,12 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
   grid-area: rate;
   align-self: center;
   position: relative;
-  min-width: 40px;
+  /* One width for every speed: the chart lines its plot up with the
+     slider beside this pill, so "12x" may not push the slider along. */
+  width: 40px;
   height: 32px;
   margin-left: -4px;
-  padding: 0 8px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: var(--row-hover);
@@ -2289,9 +2486,11 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.42s var(--spring);
 }
 #rate::after { content: ""; position: absolute; top: -4px; bottom: -4px; left: -2px; right: -2px; }
+/* The new speed rolls up into place. */
+#rate .v { display: inline-block; }
 #rate[data-rate="1"] { color: var(--muted); }
 @media (hover: hover) {
   #rate:hover { background: var(--accent-soft); color: var(--accent); }
@@ -2513,9 +2712,17 @@ kbd {
 
 /* Follow, in the bar with fit: on, the map keeps the marker in the
    middle of what is open while it plays. */
-.view-bar button.follow .core { fill: currentColor; stroke: none; opacity: 0; transition: opacity 0.15s var(--ease); }
+.view-bar button.follow .core {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0;
+  transform: scale(0);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity 0.15s var(--ease), transform 0.36s var(--spring);
+}
 .view-bar button.follow[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
-.view-bar button.follow[aria-pressed="true"] .core { opacity: 1; }
+.view-bar button.follow[aria-pressed="true"] .core { opacity: 1; transform: none; }
 
 /* The wind's picture in the readout, the size of the figures. */
 #readout .glyph { display: none; width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -2571,7 +2778,16 @@ kbd {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
-  transition: box-shadow 0.15s var(--ease), transform 0.2s var(--ease), background-color 0.2s var(--ease);
+  /* The ink of a press spreads inside the cell and no further. */
+  overflow: hidden;
+  transition: box-shadow 0.15s var(--ease), transform 0.42s var(--spring), background-color 0.2s var(--ease);
+}
+.cal-day .ink {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
 }
 .cal-day.k0, .cal-day.k1, .cal-day.k2, .cal-day.k3, .cal-day.k4 { box-shadow: none; }
 .cal-day.k0 { background: var(--cal-0); }
@@ -2643,7 +2859,7 @@ kbd {
 
 /* The theme button shows the theme in use: the sun, the moon, or half
    of each for the system's. */
-.view-bar .theme svg { display: none; }
+.view-bar .theme svg { display: none; transform-origin: 50% 50%; }
 .view-bar .theme[data-pick="auto"] .icon-auto,
 .view-bar .theme[data-pick="light"] .icon-light,
 .view-bar .theme[data-pick="dark"] .icon-dark { display: block; }
@@ -2684,10 +2900,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   <h1>Road trip to the Rockies</h1>
 </header>
 <div id="map"></div>
+<div id="sheet-shade" aria-hidden="true"></div>
 <button id="handle" type="button" aria-expanded="false" aria-controls="stats">
   <span class="grip" aria-hidden="true"></span>
   <span class="lead" aria-hidden="true">
-    <span class="sum" hidden><b><span class="n"></span><small>km</small></b><span class="days"></span></span>
+    <span class="sum" hidden><b><span class="n"></span><small>km</small></b><svg class="spark" focusable="false"></svg><span class="days"></span></span>
     <span class="pick"><span class="key"></span><span class="pick-day"></span><span class="pick-n"></span><svg class="chev" viewBox="0 0 10 10" focusable="false"><path d="M2 6.5 5 3.5l3 3"></path></svg></span>
   </span>
   <span class="tail">
@@ -2707,7 +2924,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
         <g class="icon-pause"><rect x="2.5" y="1.5" width="3.5" height="11"></rect><rect x="8" y="1.5" width="3.5" height="11"></rect></g>
       </svg>
     </button>
-    <button id="rate" type="button" data-rate="1" aria-label="Playback speed, 1x">1&times;</button>
+    <button id="rate" type="button" data-rate="1" aria-label="Playback speed, 1x"><span class="v">1&times;</span></button>
     <label for="scrub" class="vh">Position along the trip</label>
     <input id="scrub" type="range" min="0" max="0" step="1" value="0">
     <output id="readout" for="scrub" aria-live="off">
@@ -3552,6 +3769,10 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     dt.appendChild(provKey(prov.code));
     dt.appendChild(document.createTextNode(prov.name));
     item.appendChild(dt);
+    const meter = el('span', 'meter');
+    meter.setAttribute('aria-hidden', 'true');
+    meter.appendChild(el('i'));
+    item.appendChild(meter);
     item.appendChild(el('dd', '', fmtDuration(prov.hours)));
     provinceList.appendChild(item);
   });
@@ -3847,8 +4068,48 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     if (!b) return;
     const d = Number(b.getAttribute('data-day'));
     setCalFocus(d, false);
+    calRipple(b, e);
     selectDay(d, 'row', b);
   });
+  // A pick spreads out from the cell: ink from where it was pressed (its
+  // middle, from a key), the cell springs back, and the cells around it
+  // dip and recover a moment later the further they are, fading out
+  // within a few cells. Transforms and opacity only, gone in half a second.
+  const CAL_RIPPLE_MS = 460;
+  function calRipple(b, e) {
+    if (!canAnimate) return;
+    holdMotion('cal', CAL_RIPPLE_MS + 240);
+    const r = b.getBoundingClientRect();
+    const x = e.detail && e.clientX ? e.clientX - r.left : r.width / 2;
+    const y = e.detail && e.clientY ? e.clientY - r.top : r.height / 2;
+    const size = 2 * Math.max(r.width, r.height);
+    const ink = el('span', 'ink');
+    ink.style.width = ink.style.height = size + 'px';
+    ink.style.left = (x - size / 2) + 'px';
+    ink.style.top = (y - size / 2) + 'px';
+    b.appendChild(ink);
+    const a = ink.animate([
+      { opacity: 0.26, transform: 'scale(0)' },
+      { opacity: 0, transform: 'scale(1)' }
+    ], { duration: CAL_RIPPLE_MS, easing: EASE_UI });
+    a.onfinish = a.oncancel = function () { if (ink.parentNode) ink.parentNode.removeChild(ink); };
+    b.animate([{ transform: 'scale(0.9)' }, { transform: 'none' }],
+      { duration: 420, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+    const cells = Array.prototype.slice.call(calGrid.children);
+    const at = cells.indexOf(b.parentNode);
+    cells.forEach(function (cell, k) {
+      const c = cell.firstElementChild;
+      if (!c || c === b) return;
+      const dist = Math.hypot(k % 7 - at % 7, Math.floor(k / 7) - Math.floor(at / 7));
+      const depth = 0.07 * (1 - dist / 4);
+      if (depth <= 0.005) return;
+      c.animate([
+        { transform: 'none' },
+        { transform: 'scale(' + (1 - depth).toFixed(3) + ')', offset: 0.4 },
+        { transform: 'none' }
+      ], { duration: 360, delay: dist * 55, easing: 'ease-in-out' });
+    });
+  }
   // A finger has no hover; its tap picks the day, which the note shows.
   calGrid.addEventListener('pointerover', function (e) {
     const b = e.target.closest('.cal-day');
@@ -3946,9 +4207,14 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
       daysAnim = null;
     };
     if (open) {
+      // Rows that open below the view are left to rise as they scroll in.
+      const view = statsBox.getBoundingClientRect();
       Array.prototype.slice.call(tbody.children, FIRST_WEEK).forEach(function (tr, k) {
+        if (revealObs && tr.getBoundingClientRect().top > view.bottom + REVEAL_EDGE_PX) return;
+        revealTaken(tr);
         tr.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
           { duration: 260, delay: Math.min(k, 12) * 18, easing: EASE_UI, fill: 'backwards' });
+        growFrom(kmBars[Number(tr.getAttribute('data-day'))], Math.min(k, 12) * 18 + 100, 560);
       });
     } else {
       // Keep the button where the eye is: the list shrinks above it.
@@ -4020,6 +4286,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     if (selectedDay !== null) raiseDays(selectedDay, selectedDay);
     else if (playing) raiseDays(0, shownDay);
     styleDays();
+    popNights(selectedDay);
     rows.forEach(function (row, i) {
       row.setAttribute('aria-pressed', i === selectedDay ? 'true' : 'false');
       // The tint goes on the row, not the button, so the numbers read as
@@ -4047,6 +4314,21 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     // first would zoom out and then pan.
     if (how !== 'leave') fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
     scheduleHash();
+  }
+
+  // The picked day's stops pop as the map lands on it, so the eye finds
+  // where the day began and ended among the faded ones.
+  function popNights(d) {
+    if (d === null || !canAnimate || booting) return;
+    TRIP.nights.forEach(function (spot, k) {
+      const from = points[spot.idx][5];
+      if (d < from || d > from + spot.nights) return;
+      const node = nightDots[k].getElement();
+      if (node) {
+        node.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.7)', offset: 0.4 }, { transform: 'scale(1)' }],
+          { duration: 480, delay: 620, easing: 'ease-out' });
+      }
+    });
   }
 
   // Puts days first to last above the rest, in that order. The markers
@@ -4386,6 +4668,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     const wasLaidOut = !card.hidden;
     const seen = cardInView() || (!wasLaidOut && s0 === 0);
     const top0 = totalsEl.getBoundingClientRect().top;
+    // A change of day on a card in view keeps a copy of the day before,
+    // to slide out as the new one slides in.
+    dropGhost();
+    const swap = canAnimate && !booting && !sheetShut && wasLaidOut && !opening && d !== before && cardInView();
+    const ghost = swap ? ghostOf(cardBody) : null;
     fillCard(d);
     card.hidden = false;
     cardDay = d;
@@ -4412,14 +4699,25 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
           { clipPath: UNROLLED, opacity: 1 }
         ], { duration: CARD_MS, easing: EASE_UI });
       } else if (d !== before) {
-        // Stepping a day slides the new one in from the side it comes from.
-        const dir = how === 'step' ? (d > before ? 1 : -1) : 0;
+        // A later day comes in from the right and pushes the earlier one
+        // out to the left, an earlier day the other way, whether it came
+        // from the card's own buttons, the keys or a pick elsewhere.
+        const dir = before === null || before === undefined ? 0 : d > before ? 1 : -1;
+        const shift = function (k) { return dir ? 'translateX(' + (dir * k) + 'px)' : 'translateY(' + Math.abs(k) / 4 + 'px)'; };
         [cardBody, cardKicker].forEach(function (node) {
           node.animate([
-            { opacity: 0, transform: dir ? 'translateX(' + (dir * 12) + 'px)' : 'translateY(4px)' },
+            { opacity: 0, transform: shift(24) },
             { opacity: 1, transform: 'none' }
-          ], { duration: 260, easing: EASE_UI });
+          ], { duration: 300, delay: ghost ? 40 : 0, easing: EASE_UI, fill: 'backwards' });
         });
+        if (ghost) {
+          card.classList.add('swapping');
+          cardGhostAnim = ghost.animate([
+            { opacity: 1, transform: 'none' },
+            { opacity: 0, transform: shift(-24) }
+          ], { duration: 200, easing: EASE_UI, fill: 'forwards' });
+          cardGhostAnim.onfinish = dropGhost;
+        }
       }
     }
     if (outside && !sheetShut) {
@@ -4431,8 +4729,36 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     }
   }
 
+  // The copy of the day before, laid over the new day where the old one
+  // was, without ids or a way in, so it only ever shows.
+  let cardGhost = null;
+  let cardGhostAnim = null;
+  function ghostOf(body) {
+    const g = body.cloneNode(true);
+    g.classList.add('dc-ghost');
+    g.setAttribute('aria-hidden', 'true');
+    g.inert = true;
+    Array.prototype.forEach.call(g.querySelectorAll('[id]'), function (n) { n.removeAttribute('id'); });
+    Array.prototype.forEach.call(g.querySelectorAll('button, [tabindex]'), function (n) { n.tabIndex = -1; });
+    g.style.top = body.offsetTop + 'px';
+    g.style.left = body.offsetLeft + 'px';
+    g.style.width = body.offsetWidth + 'px';
+    body.parentNode.insertBefore(g, body.nextSibling);
+    cardGhost = g;
+    return g;
+  }
+  function dropGhost() {
+    const a = cardGhostAnim;
+    cardGhostAnim = null;
+    if (a) { a.onfinish = null; a.cancel(); }
+    if (cardGhost && cardGhost.parentNode) cardGhost.parentNode.removeChild(cardGhost);
+    cardGhost = null;
+    card.classList.remove('swapping');
+  }
+
   function hideCard(how) {
     if (cardDay === null) return;
+    dropGhost();
     cardDay = null;
     // Going back to the list is for a close; a card let go because the
     // marker went elsewhere leaves the panel where the reader has it.
@@ -4565,7 +4891,19 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // hover tint is a 20fps frame under the blur, and a scroll repaints the
   // card every frame. So the glass rests while the mouse is over the card
   // or the dock, or the card scrolls; the solid fill looks the same at 86%.
-  statsBox.addEventListener('scroll', function () { holdMotion('scroll', 100); }, { passive: true });
+  // How far down the list is read, in two steps, for the header's edge:
+  // a faint shade once it has moved, a deeper one well down. The classes
+  // change only when a step is crossed, not on every scroll event.
+  let panelLift = 0;
+  statsBox.addEventListener('scroll', function () {
+    holdMotion('scroll', 100);
+    const top = statsBox.scrollTop;
+    const lift = top > 160 ? 2 : top > 2 ? 1 : 0;
+    if (lift === panelLift) return;
+    panelLift = lift;
+    document.body.classList.toggle('panel-scrolled', lift > 0);
+    document.body.classList.toggle('panel-deep', lift > 1);
+  }, { passive: true });
   [statsBox, document.getElementById('dock')].forEach(function (node) {
     node.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') motion('pointer', true); });
     node.addEventListener('pointerleave', function () { motion('pointer', false); });
@@ -4622,13 +4960,15 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   const FLICK = 0.35;
   let drag = null;
   let dragFrame = 0;
+  // Past the open height the sheet gives less the further it is pulled,
+  // the way the end of a list does on a phone, and never more than this.
+  const RUBBER_PX = 72;
   function dragHeight(d) {
     let h = d.h0 - (d.y - d.y0);
-    // Past the open height it gives a little, like pulling on the end of
-    // a list, and comes back on release.
-    if (h > d.max) h = reduceMotion ? d.max : d.max + Math.min(32, (h - d.max) * 0.3);
+    if (h > d.max) h = reduceMotion ? d.max : d.max + RUBBER_PX * (1 - 1 / ((h - d.max) * 0.55 / RUBBER_PX + 1));
     return Math.max(0, h);
   }
+  const sheetShade = document.getElementById('sheet-shade');
   // The handle and, on a phone, the readout under it both drag the sheet:
   // the readout is the larger target and sits where the thumb already is.
   const readoutEl = document.getElementById('readout');
@@ -4674,6 +5014,8 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
         if (!drag || !drag.moved) return;
         const h = dragHeight(drag);
         statsBox.style.height = h + 'px';
+        // The shadow on the map deepens as the sheet comes up.
+        sheetShade.style.opacity = Math.min(1, h / Math.max(1, drag.max)).toFixed(3);
         // The early refit, for a drag: once the sheet is past halfway it
         // would settle on the other side, so the route moves clear of that
         // height now rather than staying under the finger's sheet.
@@ -4783,6 +5125,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     // style commits them before the class values take over.
     void getComputedStyle(statsBox).height;
     statsBox.style.height = '';
+    sheetShade.style.opacity = '';
     titleEl.style.opacity = '';
     titleEl.style.transform = '';
     if (Math.abs(to - from) < 0.5) sheetSettled();
@@ -5088,7 +5431,12 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     }
   }
   function beat(nodes, hold) {
-    beats.push({ nodes: nodes, hold: hold || BEAT_MS });
+    // From 4x the marker is in the next province before a label has been
+    // read, so a label waiting behind another would name a place already
+    // left: only the newest waits, and none lingers past its reading time.
+    // Each still shows for the full reading time, so none flashes.
+    if (playRate >= 4) beats.length = 0;
+    beats.push({ nodes: nodes, hold: hold || (playRate >= 4 ? BEAT_READ_MS : BEAT_MS) });
     // Nothing up, or the last one on its way out: this one shows now.
     if (!beatTimer) { nextBeat(); return; }
     clearTimeout(beatTimer);
@@ -5109,6 +5457,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // Everything the playhead passed between two frames, in the order met.
   function storyBeats(from, to) {
     if (to <= from) return;
+    // A label met within its reading time of where playback stops would
+    // be cut off by the stop (or by "Home") almost as soon as it showed,
+    // which at 8x and 12x reads as a flash, so it is left out.
+    const stop = selectedDay === null ? LAST : dayHi[selectedDay];
+    const late = (points[stop][4] - points[to][4]) / Math.max(1e-9, playKmPerMs()) < BEAT_READ_MS;
     const met = [];
     visits.forEach(function (v, k) {
       if (k > 0 && v.from_idx > from && v.from_idx <= to) {
@@ -5121,7 +5474,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     if (totals.farthest_idx > from && totals.farthest_idx <= to) {
       met.push([totals.farthest_idx, function () { return textBeat('Farthest from start', fmtInt(totals.farthest_km) + ' km'); }]);
     }
-    met.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (m) { beat(m[1]()); });
+    if (!late) met.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (m) { beat(m[1]()); });
     if (!canAnimate) return;
     TRIP.nights.forEach(function (spot, k) {
       if (spot.idx <= from || spot.idx > to) return;
@@ -5184,6 +5537,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
       trackEl.style.setProperty('--day', color);
       readWhen.style.setProperty('--day', color);
       markCalHere(shownDay);
+      markSpark(shownDay);
       // The route doubles back on itself, so the day being driven comes
       // up over the dimmed days still ahead where they share a road. A
       // picked day stays on top of the faded ones instead.
@@ -5238,7 +5592,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   const KM_PER_MS = totals.km / PLAY_MS;
   const GAP_S = 6 * 3600;
   let playing = false;
-  // 1, 2 or 4 times the pace above, from the button beside play.
+  // 1, 2, 4, 8 or 12 times the pace above, from the button beside play.
   let playRate = 1;
   let playFrame = 0;
   let playClock = null;
@@ -5254,14 +5608,23 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   function dayPlayRate(d) {
     return (points[dayHi[d]][4] - points[dayLo[d]][4]) / (5000 + 3000 * TRIP.days[d].km / kmMax);
   }
+  // How far along the road the playhead goes in a millisecond now.
+  function playKmPerMs() {
+    return playRate * (selectedDay === null ? KM_PER_MS : dayPlayRate(selectedDay));
+  }
   function playStep(t) {
     playFrame = 0;
     // A frame late after a hidden tab or a long task resumes where it was
     // instead of leaping ahead.
     const dt = playClock === null ? 0 : Math.max(0, Math.min(64, t - playClock));
     playClock = t;
+    // Whether the marker jumped this frame rather than drove: across a
+    // gap in the record, or moved by a scrub or a tap. The follow camera
+    // eases after a jump instead of taking it in one frame.
+    let leapt = false;
     // A scrub or a tap during playback moved the marker; carry on from there.
     if (current !== playI || (!reduceMotion && currentFrac !== playF)) {
+      leapt = true;
       playI = current;
       playF = currentFrac;
     }
@@ -5269,11 +5632,12 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     let f = playF;
     // A picked day plays to its own end and stops there.
     const end = selectedDay === null ? LAST : dayHi[selectedDay];
-    let km = dt * playRate * (selectedDay === null ? KM_PER_MS : dayPlayRate(selectedDay));
+    let km = dt * playKmPerMs();
     while (km > 0 && i < end) {
       const a = points[i];
       const b = points[i + 1];
       const len = b[4] - a[4];
+      if (b[3] - a[3] > GAP_S) leapt = true;
       if (b[3] - a[3] > GAP_S || len <= 0) { i += 1; f = 0; continue; }
       const left = (1 - f) * len;
       if (km < left) { f += km / len; km = 0; } else { km -= left; i += 1; f = 0; }
@@ -5283,7 +5647,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     // With less motion the marker steps from fix to fix instead of gliding.
     setIndex(i, 'play', reduceMotion ? 0 : f);
     drawTrail();
-    followFrame(dt, t);
+    followFrame(dt, t, leapt);
     if (i >= end) {
       stopPlay();
       if (i >= LAST && selectedDay === null) tripEnd();
@@ -6641,13 +7005,26 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
 
   // Playback speed, cycled from the button beside play. It can change
   // while playing; the next frame takes the new pace.
+  // 12x runs the whole trip in five seconds, which is the point of it:
+  // the loop as one gesture rather than a drive.
   const rateBtn = document.getElementById('rate');
-  const RATES = [1, 2, 4];
+  const rateText = rateBtn.querySelector('.v');
+  const RATES = [1, 2, 4, 8, 12];
   rateBtn.addEventListener('click', function () {
     playRate = RATES[(RATES.indexOf(playRate) + 1) % RATES.length];
-    rateBtn.textContent = playRate + '×';
+    rateText.textContent = playRate + '×';
     rateBtn.setAttribute('data-rate', String(playRate));
     rateBtn.setAttribute('aria-label', 'Playback speed, ' + playRate + 'x');
+    // The new figure comes up from under the old one; back to 1x it
+    // comes down, so the cycle reads as going round.
+    if (canAnimate) {
+      holdMotion('rate', 300);
+      const up = playRate === 1 ? -1 : 1;
+      rateText.animate([
+        { opacity: 0, transform: 'translateY(' + (7 * up) + 'px)' },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 260, easing: EASE_UI });
+    }
   });
 
   // The + and - buttons and the map's own + and - keys zoom about the
@@ -6780,7 +7157,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // only every 120ms: a moveend redraws every route path, which on each
   // frame took a desktop frame past its budget, and the clip area around
   // the view (10% each side) is far more than 120ms of travel.
-  function followFrame(dt, t) {
+  function followFrame(dt, t, leapt) {
     if (!following) return;
     if (leafletZooming || map._animatingZoom || (map._panAnim && map._panAnim._inProgress) ||
         (map.dragging && map.dragging.moving && map.dragging.moving())) {
@@ -6793,7 +7170,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     let move = followPrev && followPrev.z === zoom ? abs.subtract(followPrev.p) : L.point(0, 0);
     followPrev = { p: abs, z: zoom };
     const size = map.getSize();
-    if (Math.abs(move.x) > size.x / 4 || Math.abs(move.y) > size.y / 4) move = L.point(0, 0);
+    // A leap across a gap is eased rather than taken in one frame. Only a
+    // leap: at 12x and a close zoom an ordinary frame's drive can be a
+    // quarter of the map wide, and easing that would let the marker run
+    // off the open part of the map.
+    if (leapt && (Math.abs(move.x) > size.x / 4 || Math.abs(move.y) > size.y / 4)) move = L.point(0, 0);
     const off = map.latLngToContainerPoint(at).subtract(openCentre());
     const k = reduceMotion ? 1 : 1 - Math.exp(-dt / FOLLOW_TAU_MS);
     const fx = move.x + (off.x - move.x) * k + followCarry.x;
@@ -6842,6 +7223,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // are never touched. Less motion: no comet.
   const TRAIL_KM = 40;
   const TRAIL_MIN_PX = 48;
+  // At speed the tail stretches to about the distance driven in this
+  // long, so at 12x, where a frame covers some 40 km, it is still a comet
+  // of a dozen frames and not a stub that flickers behind the marker. At
+  // 1x this is the same 40 km.
+  const TRAIL_MS = 190;
   const TRAIL_N = 8;
   const trailPane = map.createPane('trail');
   trailPane.style.zIndex = '446';
@@ -6876,7 +7262,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     const headKm = points[i][4] + (i < LAST ? (points[i + 1][4] - points[i][4]) * currentFrac : 0);
     // Kilometres a pixel covers here, on the cumulative distance's scale.
     const kmPx = 40075.017 * Math.cos(head.lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8) * totals.scale;
-    const len = Math.max(TRAIL_KM, TRAIL_MIN_PX * kmPx);
+    const len = Math.max(TRAIL_KM, TRAIL_MIN_PX * kmPx, playKmPerMs() * TRAIL_MS);
     // Back along the route from the marker, stopping at a gap in the
     // record, where the line on the map breaks too.
     const pts = [[head.lat, head.lng, headKm]];
@@ -6980,6 +7366,19 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   }
   const THEME_MS = 520;
   let themeTimer = 0;
+  // The new theme's glyph turns in from a quarter turn back as it grows,
+  // so the button reads as one icon changing rather than a swap. An
+  // animation, not a transition: the frame the theme changes in has its
+  // transitions switched off.
+  function morphThemeIcon(pick) {
+    if (!canAnimate) return;
+    const icon = themeBtn.querySelector('.icon-' + pick);
+    if (!icon) return;
+    icon.animate([
+      { opacity: 0, transform: 'rotate(-90deg) scale(0.4)' },
+      { opacity: 1, transform: 'none' }
+    ], { duration: 420, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+  }
   function setTheme(pick) {
     const changes = themeShown(pick) !== themeShown(themePick);
     try {
@@ -6990,6 +7389,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     const go = function () {
       rootEl.classList.add('theme-snap');
       applyTheme(pick);
+      morphThemeIcon(pick);
       void getComputedStyle(document.body).color;
       requestAnimationFrame(function () {
         requestAnimationFrame(function () { rootEl.classList.remove('theme-snap'); });
@@ -7359,6 +7759,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // finishes the route and the chart at once; the panel's entrance is
   // short and plays on.
   const REVEAL_MS = 2600;
+  const ROUTE_LEAD_MS = 240;
   const CHART_MS = 800;
   const POP_MS = 220;
   const POP_EASE = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
@@ -7413,7 +7814,10 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     if (!canAnimate) return;
     motion('intro', true);
     if (colourMode !== 'day') rebuildLines(true);
-    introStart = document.timeline ? document.timeline.currentTime : null;
+    // The route starts a moment after the glass has begun to rise, so
+    // the eye goes from the panel to the map in one order.
+    introStart = document.timeline && document.timeline.currentTime !== null
+      ? document.timeline.currentTime + ROUTE_LEAD_MS : null;
     routeParts.concat(allLines()).forEach(function (part) {
       const path = part.layer.getElement();
       if (!path) return;
@@ -7463,6 +7867,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
       trackEl.classList.remove('waiting');
       restHalo();
     }, function () {});
+    if (introStart !== null) introAnims.forEach(function (anim) { anim.startTime = introStart; });
     // A wheel, key or touch means the viewer wants the map now.
     ['pointerdown', 'wheel', 'keydown'].forEach(function (type) {
       window.addEventListener(type, finishReveal, { capture: true, passive: true });
@@ -7529,7 +7934,9 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // for the first time the sheet opens.
   const STAGGER_MS = 40;
   const COUNT_MS = 1100;
+  const SECTION_LEAD_MS = 120;
   let panelShown = false;
+  let revealTimer = 0;
   function panelIntro() {
     if (panelShown) return;
     panelShown = true;
@@ -7543,15 +7950,18 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
       [document.getElementById('records'), document.getElementById('calendar'), document.getElementById('days-head'), daysTable,
         document.getElementById('provinces'), document.getElementById('colophon')]
     );
+    // On a wide screen the card itself has only just begun to rise, so
+    // its contents follow a beat behind it.
+    const lead = phone ? 0 : SECTION_LEAD_MS;
     parts.forEach(function (node, k) {
       node.animate([
         { opacity: 0, transform: 'translateY(8px)' },
         { opacity: 1, transform: 'none' }
-      ], { duration: 420, delay: k * STAGGER_MS, easing: EASE_UI, fill: 'backwards' });
+      ], { duration: 420, delay: lead + k * STAGGER_MS, easing: EASE_UI, fill: 'backwards' });
     });
     // The distance bars grow out from their figures once the table has
     // risen, a row at a time, the way the route draws itself on the map.
-    const barsAt = parts.indexOf(daysTable) * STAGGER_MS + 200;
+    const barsAt = lead + parts.indexOf(daysTable) * STAGGER_MS + 200;
     trs.forEach(function (tr, r) {
       const bar = kmBars[Number(tr.getAttribute('data-day'))];
       bar.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
@@ -7560,9 +7970,16 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     countUp(counters, COUNT_MS, function () { totalsEl.classList.add('counting'); }, function () {
       totalsEl.classList.remove('counting');
       motion('panel', false);
-    });
+    }, lead + 80);
+    // The records and province meters in view count and fill as part of
+    // the entrance; on a phone the view is the height the sheet opens to.
+    introduce(phone ? openHeight() : statsBox.clientHeight, lead + 260);
+    // What is below the fold rises as it scrolls into view. The observer
+    // starts once this entrance is under way, so what it already shows is
+    // left to it and only the rest waits for the scroll.
+    revealTimer = setTimeout(startReveals, lead + 520);
   }
-  function countUp(list, ms, start, done) {
+  function countUp(list, ms, start, done, delay) {
     // Each number is held at its final width first, so the count runs in
     // place, right aligned against the unit.
     list.forEach(function (c) { c.width = c.node.getBoundingClientRect().width; });
@@ -7573,8 +7990,8 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     });
     let t0 = null;
     function frame(t) {
-      if (t0 === null) t0 = t;
-      const k = Math.min(1, (t - t0) / ms);
+      if (t0 === null) t0 = t + (delay || 0);
+      const k = Math.max(0, Math.min(1, (t - t0) / ms));
       const e = 1 - Math.pow(1 - k, 3);
       list.forEach(function (c) {
         const text = k < 1 ? c.fmt(c.to * e) : c.text;
@@ -7590,10 +8007,202 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     requestAnimationFrame(frame);
   }
 
+  // Below the fold the sections, cards and rows rise into place as they
+  // scroll into view, a few at a time. Nothing is hidden ahead of time:
+  // each rise is an animation started as its element comes within a
+  // short way of the bottom edge, so with no script, no observer or less
+  // motion every element is simply where it is, and one whose animation
+  // is cut short is too. One already well inside the view when it is
+  // reported (a jump scrolled it there and it has been drawn) is left
+  // alone rather than made to vanish and come back.
+  const REVEAL_EDGE_PX = 56;
+  const RISE_IN_MS = 380;
+  const COUNT_REC_MS = 720;
+  const hasWeakSet = typeof WeakSet === 'function';
+  // What the entrance itself showed, and what the observer has heard of.
+  const introduced = hasWeakSet ? new WeakSet() : null;
+  const revealPrimed = hasWeakSet ? new WeakSet() : null;
+  let revealObs = null;
+  let revealLeft = 0;
+  function revealTargets() {
+    const q = function (sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); };
+    return [].concat(
+      q('#totals .pairs > div, #totals .places > div, #records .section-head, #record-list > .place'),
+      q('#calendar .section-head, #calendar .cal-wd, #cal-grid, #calendar .cal-foot'),
+      [document.getElementById('days-head')], trs, [moreBtn],
+      q('#provinces .section-head, #prov-timeline, #provinces .timeline-foot, #province-list > div'),
+      [document.getElementById('colophon')]
+    );
+  }
+  // Inside the stats' view, given the height that view has or is opening to.
+  function inPanelView(node, viewH) {
+    const r = node.getBoundingClientRect();
+    const b = statsBox.getBoundingClientRect();
+    return r.height > 0 && r.top - b.top < viewH && r.bottom > b.top;
+  }
+  function rise(node, delay) {
+    holdMotion('reveal', delay + RISE_IN_MS + 40);
+    // A row is short, so it travels less than a card.
+    const dy = node.tagName === 'TR' ? 8 : 14;
+    node.animate([
+      { opacity: 0, transform: 'translateY(' + dy + 'px)' },
+      { opacity: 1, transform: 'none' }
+    ], { duration: RISE_IN_MS, delay: delay, easing: EASE_UI, fill: 'backwards' });
+  }
+  function growFrom(node, delay, ms) {
+    node.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+      { duration: ms, delay: delay, easing: EASE_UI, fill: 'backwards' });
+  }
+  // A record's figure counts up the first time it is seen, with its own
+  // decimals and separators, ending on its exact text. A time of day or
+  // a zero has nothing to count.
+  function countRecord(card, delay) {
+    const num = card.querySelector('.num');
+    if (!num) return;
+    const text = num.textContent;
+    const m = /^([−-]?)([\d,]+)(?:\.(\d))?$/.exec(text);
+    if (!m) return;
+    const to = Number(m[2].replace(/,/g, '') + (m[3] ? '.' + m[3] : '')) * (m[1] ? -1 : 1);
+    if (!(Math.abs(to) > 0)) return;
+    countUp([{ node: num, text: text, to: to, fmt: m[3] ? fmt1 : fmtInt }], COUNT_REC_MS,
+      function () { card.classList.add('counting'); },
+      function () { card.classList.remove('counting'); }, delay);
+  }
+  // What comes with an element's first appearance besides the rise.
+  function firstSight(node, delay) {
+    if (node.classList.contains('rec')) countRecord(node, delay + 100);
+    else if (node.parentNode === provinceList) growFrom(node.querySelector('.meter i'), delay + 120, 620);
+    else if (node.tagName === 'TR') growFrom(kmBars[Number(node.getAttribute('data-day'))], delay + 100, 560);
+  }
+  // The entrance plays the in view part of this for what it shows.
+  function introduce(viewH, delay) {
+    if (!introduced) return;
+    revealTargets().forEach(function (node) {
+      if (!inPanelView(node, viewH)) return;
+      introduced.add(node);
+      // The rows' bars already grow with the table's own entrance.
+      if (node.tagName !== 'TR') firstSight(node, delay);
+    });
+  }
+  function revealDone(node) {
+    revealObs.unobserve(node);
+    if (--revealLeft <= 0) revealObs.disconnect();
+  }
+  function onReveal(entries) {
+    const view = statsBox.getBoundingClientRect();
+    const fresh = [];
+    entries.forEach(function (en) {
+      const node = en.target;
+      if (!revealPrimed.has(node)) {
+        revealPrimed.add(node);
+        // Already in view as the observer starts, after the entrance:
+        // nothing to rise into.
+        if (en.isIntersecting && view.height > 0) revealDone(node);
+        return;
+      }
+      if (!en.isIntersecting || view.height === 0) return;
+      revealDone(node);
+      if (en.boundingClientRect.top < view.bottom - 12) return;
+      fresh.push(en);
+    });
+    fresh.sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+    fresh.forEach(function (en, k) {
+      const delay = Math.min(k, 5) * 45;
+      rise(en.target, delay);
+      firstSight(en.target, delay);
+    });
+  }
+  function startReveals() {
+    revealTimer = 0;
+    if (revealObs || !canAnimate || !hasWeakSet || typeof IntersectionObserver !== 'function') return;
+    const targets = revealTargets().filter(function (node) { return !introduced.has(node); });
+    if (!targets.length) return;
+    try {
+      revealObs = new IntersectionObserver(onReveal,
+        { root: statsBox, rootMargin: '0px 0px ' + REVEAL_EDGE_PX + 'px 0px', threshold: 0 });
+    } catch (err) { revealObs = null; return; }
+    revealLeft = targets.length;
+    targets.forEach(function (node) { revealObs.observe(node); });
+  }
+  // Rows the list opens onto in view rise with the list's own animation;
+  // the observer stands down for them so they do not rise twice.
+  function revealTaken(node) {
+    if (revealObs && revealPrimed.has(node) && revealLeft > 0) {
+      revealObs.unobserve(node);
+      if (--revealLeft <= 0) revealObs.disconnect();
+    }
+  }
+
+  // The glass comes up first on load: the card and the dock on a wide
+  // screen, the sheet on a phone, rising a little as they fade in. The
+  // sheet's surface is the body's ::before, which only an animation that
+  // can name a pseudo element reaches; elsewhere it is simply there.
+  const RISE_MS = 460;
+  function riseSurfaces() {
+    if (!canAnimate) return;
+    const phone = getComputedStyle(handle).display !== 'none';
+    holdMotion('rise', RISE_MS + 160);
+    const kf = [
+      { opacity: 0, transform: 'translateY(' + (phone ? 28 : 14) + 'px)' },
+      { opacity: 1, transform: 'none' }
+    ];
+    const timing = { duration: RISE_MS, easing: EASE_UI, fill: 'backwards' };
+    if (typeof KeyframeEffect === 'function' && 'pseudoElement' in KeyframeEffect.prototype) {
+      try {
+        document.body.animate(kf, Object.assign({ pseudoElement: '::before' }, timing));
+      } catch (err) { /* the surface is simply there */ }
+    }
+    let last = null;
+    (phone ? [handle, dock] : [dock]).forEach(function (node) {
+      last = node.animate(kf, Object.assign({}, timing, { delay: phone ? 0 : 70 }));
+    });
+    // The panels' edges are read from their boxes, which count the rise's
+    // transform, so whatever was measured while they rose is let go.
+    last.finished.then(panelsMoved, panelsMoved);
+  }
+
+  // The phone's closed sheet: each day's distance as a bar beside the
+  // trip's total. The bars rise in step with the route drawing itself.
+  const sparkSvg = handle.querySelector('.spark');
+  const sparkBars = [];
+  (function () {
+    const n = TRIP.days.length;
+    const H = 16;
+    sparkSvg.setAttribute('viewBox', '0 0 ' + (n * 3 - 1) + ' ' + H);
+    sparkSvg.setAttribute('preserveAspectRatio', 'none');
+    TRIP.days.forEach(function (day, d) {
+      const h = Math.max(1.5, day.km / kmMax * H);
+      const r = svgEl('rect', { x: d * 3, y: (H - h).toFixed(2), width: 2, height: h.toFixed(2), rx: 0.6 });
+      r.style.setProperty('--day', day.color);
+      sparkSvg.appendChild(r);
+      sparkBars.push(r);
+    });
+  })();
+  let sparkOn = -1;
+  function markSpark(d) {
+    if (d === sparkOn) return;
+    if (sparkOn >= 0) sparkBars[sparkOn].classList.remove('on');
+    sparkOn = d;
+    sparkBars[d].classList.add('on');
+  }
+  function sparkIntro() {
+    if (!canAnimate || introStart === null) return;
+    sparkBars.forEach(function (r, d) {
+      const a = r.animate([{ transform: 'scaleY(0)' }, { transform: 'none' }],
+        { duration: 360, delay: revealAt(dayLo[d]) * REVEAL_MS, easing: EASE_UI, fill: 'backwards' });
+      a.startTime = introStart;
+    });
+  }
+
+  // Safari on a phone only shows :active, the pressed look every button
+  // here has, while some touchstart listener is on the page.
+  document.addEventListener('touchstart', function () {}, { passive: true });
+
   // A link opens on its view at once, without the route drawing itself
   // first: whoever sent it meant that place, not the trip from the start.
   const bootLink = readLink();
   const linked = bootLink.day !== null || bootLink.at !== null;
+  riseSurfaces();
   if (!linked) startReveal();
   render();
   watchReveal();
@@ -7610,8 +8219,10 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   if (getComputedStyle(handle).display === 'none') {
     panelIntro();
   } else if (canAnimate) {
-    // The handle's distance runs up while the route draws itself.
-    countUp([{ node: handleN, text: handleN.textContent, to: totals.km, fmt: fmt1 }], REVEAL_MS);
+    // The handle's distance runs up while the route draws itself, and
+    // the day bars beside it rise as the route reaches each day.
+    countUp([{ node: handleN, text: handleN.textContent, to: totals.km, fmt: fmt1 }], REVEAL_MS, null, null, ROUTE_LEAD_MS);
+    sparkIntro();
     titleEl.animate([
       { opacity: 0, transform: 'translateY(-6px)' },
       { opacity: 1, transform: 'none' }
