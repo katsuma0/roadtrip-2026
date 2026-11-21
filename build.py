@@ -358,12 +358,12 @@ def province_visits(pts, steps):
 
 
 def minutes_after(midnight, t):
-    """Minutes from a day's midnight, unrounded, so two days whose start or
-    finish reads the same on the clock still have one that came first."""
+    """Minutes from a day's midnight, unrounded, so two days whose start
+    reads the same on the clock still have one that came first."""
     return (t - midnight).total_seconds() / 60.0
 
 
-def find_records(days, nights, spans, dates, starts, ends, own, tz):
+def find_records(days, nights, spans, dates, starts, own, tz):
     """The days that stand out, plus the longest stay. Ties go to the
     earlier day. Speeds are left out: from a fix every ten minutes they
     say more about the gaps between fixes than about the driving."""
@@ -375,8 +375,8 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
         return best
 
     moving = [d for d in range(len(days)) if starts[d] is not None]
-    # Start and finish only count for days with a drive of their own, so
-    # the end of the drive home at midnight is not the earliest start.
+    # The start only counts for days with a drive of their own, so the
+    # end of the drive home at midnight is not the earliest start.
     driven = [d for d in moving if own[d]]
     midnight = [datetime(dt.year, dt.month, dt.day, tzinfo=tz) for dt in dates]
     out = []
@@ -400,12 +400,6 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
     d = pick(driven, lambda d: minutes_after(midnight[d], starts[d]), largest=False)
     if d is not None:
         add("earliest_start", "Earliest start", hhmm(starts[d]), d)
-    d = pick(driven, lambda d: minutes_after(midnight[d], ends[d]))
-    if d is not None:
-        add("latest_finish", "Latest finish", hhmm(ends[d]), d)
-    d = pick(moving, lambda d: days[d]["km"], largest=False)
-    if d is not None:
-        add("shortest_day", "Shortest day", "%s km" % format(days[d]["km"], ",.1f"), d)
     return out
 
 
@@ -639,7 +633,7 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
     # The drive home ran past midnight, so the last two days have none.
     for di, dt in enumerate(dates):
         days[di]["night"] = next((k for k, (a, b) in enumerate(spans) if a <= dt <= b), None)
-    records = find_records(days, nights, spans, dates, starts, ends, own, tz)
+    records = find_records(days, nights, spans, dates, starts, own, tz)
 
     return {"points": points, "days": days, "gaps": gaps, "nights": nights,
             "provinces": provinces, "province_visits": province_visits(pts, steps),
