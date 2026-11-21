@@ -5457,6 +5457,11 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
   // Everything the playhead passed between two frames, in the order met.
   function storyBeats(from, to) {
     if (to <= from) return;
+    // A label met within its reading time of where playback stops would
+    // be cut off by the stop (or by "Home") almost as soon as it showed,
+    // which at 8x and 12x reads as a flash, so it is left out.
+    const stop = selectedDay === null ? LAST : dayHi[selectedDay];
+    const late = (points[stop][4] - points[to][4]) / Math.max(1e-9, playKmPerMs()) < BEAT_READ_MS;
     const met = [];
     visits.forEach(function (v, k) {
       if (k > 0 && v.from_idx > from && v.from_idx <= to) {
@@ -5469,7 +5474,7 @@ html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *
     if (totals.farthest_idx > from && totals.farthest_idx <= to) {
       met.push([totals.farthest_idx, function () { return textBeat('Farthest from start', fmtInt(totals.farthest_km) + ' km'); }]);
     }
-    met.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (m) { beat(m[1]()); });
+    if (!late) met.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (m) { beat(m[1]()); });
     if (!canAnimate) return;
     TRIP.nights.forEach(function (spot, k) {
       if (spot.idx <= from || spot.idx > to) return;
