@@ -298,6 +298,8 @@ body.sheet-dragging #handle .grip { background: var(--faint); transform: scaleX(
   white-space: nowrap;
   transition: opacity 0.2s var(--ease), visibility 0s;
 }
+/* Empty until the script fills it, so a failed load shows no stray unit. */
+#handle .sum[hidden] { display: none; }
 #handle .sum b {
   color: var(--text);
   font-size: 15px;
@@ -312,7 +314,6 @@ body.sheet-dragging #handle .grip { background: var(--faint); transform: scaleX(
 #handle .pick .key { flex: none; width: 16px; height: 4px; border-radius: 2px; background: var(--day, var(--accent)); }
 #handle .pick-day { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: 13px; font-weight: 600; }
 #handle .pick-n { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-#handle .pick .chev { margin-top: 0; }
 #handle .tail {
   flex: none;
   display: flex;
@@ -601,6 +602,12 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
   color: var(--muted);
 }
 .place .when .swatch { flex: none; width: 16px; height: 4px; border-radius: 2px; }
+/* In a 130px place card "Mon, Sep 14" is a few pixels wider than the
+   room left of the arrow, so a narrow card leaves the weekday out (the
+   card's aria-label keeps it), and anything still too long ends in an
+   ellipsis rather than under the arrow. */
+.place .when > span:last-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@container panel (max-width: 359px) { #totals .place .when .wd { display: none; } }
 /* The arrow sits at the foot of the card, so the line beside it stops short. */
 .place .when, #totals .place dd { padding-right: 20px; }
 .place.current { background: var(--accent-soft); }
@@ -1377,8 +1384,12 @@ body.sheet-open #dock::after { opacity: 1; }
 #chart .prov text { fill: var(--muted); letter-spacing: 0.04em; }
 /* The hover label names the province itself and sits where the codes
    are, so they step back while it shows. */
-#chart .prov text, #chart .peak text { transition: fill-opacity 0.15s var(--ease), stroke-opacity 0.15s var(--ease); }
-#chart.hovering .prov text, #chart.hovering .peak text { fill-opacity: 0; stroke-opacity: 0; }
+#chart .prov text { transition: fill-opacity 0.15s var(--ease), stroke-opacity 0.15s var(--ease); }
+#chart.hovering .prov text { fill-opacity: 0; stroke-opacity: 0; }
+/* The dot goes with its label: alone it reads as a stray mark. The group's
+   own opacity is the zoom's and the intro's, so its parts fade instead. */
+#chart .peak > * { transition: opacity 0.15s var(--ease); }
+#chart.hovering .peak > * { opacity: 0; }
 #chart .peak text { fill: var(--text); }
 #chart .peak circle { fill: var(--text); stroke: var(--glass-solid); stroke-width: 1.5; }
 #play {
@@ -1506,6 +1517,7 @@ body.sheet-open #dock::after { opacity: 1; }
    to "47 m"), so each keeps the width of its widest value (set from the
    script) and the dividers after them sit still while the marker moves. */
 #readout .ele { text-align: left; }
+#readout .ele, #readout .temp { box-sizing: content-box; }
 #readout .ele, #readout .km { color: var(--text); font-weight: 500; }
 #readout .unit { color: var(--muted); font-weight: 400; }
 /* No station near enough: a dash keeps the slot, rather than a gap. */
@@ -1583,6 +1595,9 @@ body.sheet-open #dock::after { opacity: 1; }
   #handle .grip { display: none; }
   #handle .lead, #handle .tail { padding-top: 0; }
   #handle-clear { width: 32px; height: 26px; margin-top: 0; border-radius: 13px; }
+  /* The pill is drawn small to fit the 26px row; the finger still gets
+     40 by 40, which also keeps a tap a little low off the chart. */
+  #handle-clear::after { content: ""; position: absolute; top: -7px; right: -4px; bottom: -7px; left: -4px; }
   #dock {
     grid-template-rows: 64px 20px 26px;
     grid-template-areas: "chart chart" "play read" "play scrub";
@@ -1968,7 +1983,7 @@ body.sheet-open #dock::after { opacity: 1; }
   }
 }
 /* A hair tighter on 360px phones, which miss the one line by a few
-   pixels; at 320 the credits take two lines, right aligned. */
+   pixels; under 360 the weather credit is shortened to fit. */
 @media (max-width: 379px) {
   .leaflet-container .leaflet-control-attribution { letter-spacing: -0.015em; }
 }
@@ -2042,7 +2057,7 @@ body.sheet-open #dock::after { opacity: 1; }
 <button id="handle" type="button" aria-expanded="false" aria-controls="stats">
   <span class="grip" aria-hidden="true"></span>
   <span class="lead" aria-hidden="true">
-    <span class="sum"><b><span class="n"></span><small>km</small></b><span class="days"></span></span>
+    <span class="sum" hidden><b><span class="n"></span><small>km</small></b><span class="days"></span></span>
     <span class="pick"><span class="key"></span><span class="pick-day"></span><span class="pick-n"></span><svg class="chev" viewBox="0 0 10 10" focusable="false"><path d="M2 6.5 5 3.5l3 3"></path></svg></span>
   </span>
   <span class="tail">
@@ -2119,7 +2134,7 @@ body.sheet-open #dock::after { opacity: 1; }
     <tbody id="day-rows"></tbody>
   </table>
   </div>
-  <button id="days-more" type="button" class="more" aria-expanded="false" aria-controls="days">
+  <button id="days-more" type="button" aria-expanded="false" aria-controls="days">
     <span class="more-text"></span>
     <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3 4.5 6 7.5 9 4.5"></path></svg>
   </button>
@@ -2415,13 +2430,18 @@ body.sheet-open #dock::after { opacity: 1; }
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
   // The Open Government Licence asks for the source to be named. On a
-  // phone the credits are one line, so the wording is shorter there;
-  // OSM's credit goes back after it so the order stays the same.
+  // phone the credits are one line, so the wording is shorter there, and
+  // under 360px the department goes by its initials, with its full name
+  // on the link; OSM's credit goes back after it so the order stays the
+  // same.
   const OSM_CREDIT = tiles.getAttribution();
   let wxCredit = null;
   function creditWeather() {
     if (!TRIP.wx_source) return;
-    const link = '<a href="' + TRIP.wx_source.url + '">Environment Canada</a>';
+    const tiny = tinyQuery && tinyQuery.matches;
+    const link = tiny
+      ? '<a href="' + TRIP.wx_source.url + '" title="Environment and Climate Change Canada">ECCC</a>'
+      : '<a href="' + TRIP.wx_source.url + '">Environment Canada</a>';
     const text = (phoneQuery && phoneQuery.matches ? 'Weather: ' : 'Weather from ') + link;
     if (text === wxCredit) return;
     const credits = map.attributionControl;
@@ -2432,11 +2452,13 @@ body.sheet-open #dock::after { opacity: 1; }
     wxCredit = text;
   }
   const phoneQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 767px)') : null;
+  const tinyQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 359px)') : null;
   creditWeather();
-  if (phoneQuery) {
-    if (phoneQuery.addEventListener) phoneQuery.addEventListener('change', creditWeather);
-    else if (phoneQuery.addListener) phoneQuery.addListener(creditWeather);
-  }
+  [phoneQuery, tinyQuery].forEach(function (q) {
+    if (!q) return;
+    if (q.addEventListener) q.addEventListener('change', creditWeather);
+    else if (q.addListener) q.addListener(creditWeather);
+  });
   // New tiles fade in under the glass for a moment after they arrive.
   const TILE_FADE_MS = 240;
   // A batch that starts before the last one's fade is over keeps the glass
@@ -2621,8 +2643,10 @@ body.sheet-open #dock::after { opacity: 1; }
     svg.appendChild(svgEl('path', { d: 'M4.2 9.8 9.6 4.4M5.4 4.2h4.4v4.4' }));
     return svg;
   }
-  // A record's day under its figure, with the day's key.
-  function whenLine(d, text) {
+  // Shared by the records and the place cards, so a figure's day reads
+  // the same in both. dated adds the day's date after text, with the
+  // weekday in a span of its own that a narrow card can leave out.
+  function whenLine(d, text, dated) {
     const line = el('span', 'when');
     line.setAttribute('aria-hidden', 'true');
     if (d !== null) {
@@ -2630,7 +2654,12 @@ body.sheet-open #dock::after { opacity: 1; }
       sw.style.background = TRIP.days[d].color;
       line.appendChild(sw);
     }
-    line.appendChild(el('span', '', text));
+    const words = el('span', '', text);
+    if (dated) {
+      words.appendChild(el('span', 'wd', TRIP.days[d].weekday + ', '));
+      words.appendChild(document.createTextNode(TRIP.days[d].label));
+    }
+    line.appendChild(words);
     return line;
   }
   const totalsEl = document.getElementById('totals');
@@ -2658,7 +2687,7 @@ body.sheet-open #dock::after { opacity: 1; }
         jump.addEventListener('click', function () { setIndex(item.index, 'jump'); });
         dd.appendChild(jump);
         // The day it happened, the same line the records carry.
-        dd.appendChild(whenLine(d, (item.how ? item.how + ', ' : '') + weekdayLabel(d)));
+        dd.appendChild(whenLine(d, item.how ? item.how + ', ' : '', true));
         wrap.appendChild(goIcon());
       }
       wrap.appendChild(dd);
@@ -3228,8 +3257,8 @@ body.sheet-open #dock::after { opacity: 1; }
     return statsBox.clientHeight > 0 && !card.hidden && statsBox.scrollTop < card.offsetTop + card.offsetHeight - 24;
   }
 
-  // Small line drawings for the weather, drawn by hand on a 16 unit grid
-  // in the same stroke as the other icons on the page.
+  // Drawn by hand, as every icon on the page is, on the 16 unit grid
+  // the card's other line icons use, so they share one stroke weight.
   const WX_THERMO = ['M6.5 9.6V3.5a1.5 1.5 0 0 1 3 0v6.1a2.8 2.8 0 1 1-3 0z', 'M8 6.5v4.6'];
   const WX_DROP = ['M8 2.5c2.2 3 3.6 5 3.6 6.8a3.6 3.6 0 0 1-7.2 0c0-1.8 1.4-3.8 3.6-6.8z'];
   const WX_WIND = ['M2.5 6.5h7.2a2 2 0 1 0-2-2', 'M2.5 9.5h9.3a2 2 0 1 1-2 2'];
@@ -3257,7 +3286,8 @@ body.sheet-open #dock::after { opacity: 1; }
     return svg;
   }
 
-  // Where the day ended, as a button that puts the marker there.
+  // A night with a known spot is a button, the same as a record: the
+  // place is somewhere on the map, so the row can take the marker there.
   function nightRow(d) {
     const k = TRIP.days[d].night;
     while (cardNight.firstChild) cardNight.removeChild(cardNight.firstChild);
@@ -3274,7 +3304,7 @@ body.sheet-open #dock::after { opacity: 1; }
       value.textContent = 'Not known, device off';
     } else {
       // The card's own heading already says which night it is, so the row
-      // says how far from home the spot was instead. A straight line, the
+      // says how far from the start the spot was instead. A straight line, the
       // same measure as the Farthest card, so no night outruns it.
       const where = fmtInt(L.latLng(latlngs[0]).distanceTo([spot.lat, spot.lon]) / 1000) + ' km from the start';
       value.textContent = where;
@@ -3537,6 +3567,7 @@ body.sheet-open #dock::after { opacity: 1; }
   const handleN = handle.querySelector('.sum .n');
   handleN.textContent = fmt1(totals.km);
   handle.querySelector('.sum .days').textContent = totals.days + ' days';
+  handle.querySelector('.sum').hidden = false;
   const handleKey = handle.querySelector('.pick .key');
   const handleDay = handle.querySelector('.pick-day');
   const handleNth = handle.querySelector('.pick-n');
@@ -3547,6 +3578,9 @@ body.sheet-open #dock::after { opacity: 1; }
     // The last day's words stay while the pick fades out.
     if (d === null) {
       handle.removeAttribute('aria-label');
+      // The clear button hides with the pick, however it was cleared, and
+      // a hidden button drops the focus to the page.
+      if (document.activeElement === handleClear) handle.focus({ preventScroll: true });
       return;
     }
     handleKey.style.setProperty('--day', TRIP.days[d].color);
@@ -3630,12 +3664,20 @@ body.sheet-open #dock::after { opacity: 1; }
   // The handle and, on a phone, the readout under it both drag the sheet:
   // the readout is the larger target and sits where the thumb already is.
   const readoutEl = document.getElementById('readout');
+  // Folded, the open stats are taller by the chart's 84px (the condensed
+  // rule in the CSS), and the fold holds through the drag. Measured
+  // against the unfolded height the sheet would jump down on pick up and
+  // the first 84px of pull would be rubber band.
+  const DOCK_FOLD = 84;
+  function openHeight() {
+    return sheetProbe.offsetHeight + (document.body.classList.contains('dock-condensed') ? DOCK_FOLD : 0);
+  }
   function startDrag(e, target) {
     if (e.button !== 0 || !e.isPrimary) return;
     if (getComputedStyle(handle).display === 'none') return;
     drag = {
       id: e.pointerId, y0: e.clientY, y: e.clientY, moved: false,
-      h0: statsBox.getBoundingClientRect().height, max: sheetProbe.offsetHeight,
+      h0: statsBox.getBoundingClientRect().height, max: openHeight(),
       trail: [{ t: e.timeStamp, y: e.clientY }]
     };
     drag.past = drag.h0 > drag.max / 2;
@@ -3723,7 +3765,7 @@ body.sheet-open #dock::after { opacity: 1; }
     e.preventDefault();
     drag = {
       id: 'touch', y0: t.clientY, y: t.clientY, moved: false,
-      h0: statsBox.getBoundingClientRect().height, max: sheetProbe.offsetHeight,
+      h0: statsBox.getBoundingClientRect().height, max: openHeight(),
       trail: [{ t: e.timeStamp, y: t.clientY }]
     };
     drag.past = drag.h0 > drag.max / 2;
@@ -3810,8 +3852,15 @@ body.sheet-open #dock::after { opacity: 1; }
     revealCard();
     fitTo(viewBounds(), undefined, true);
   }
+  // The chart's fold also eases the stats' height, but the sheet's top
+  // edge stays put, so there is nothing to refit, and revealCard would
+  // pull a reader who scrolled past the day card straight back up to it.
+  // A drag's settle sets its timing inline, so it still counts.
+  function foldOnly() {
+    return document.body.classList.contains('dock-fold') && !statsBox.style.transitionDuration;
+  }
   statsBox.addEventListener('transitionend', function (e) {
-    if (e.target === statsBox && e.propertyName === 'height') sheetSettled();
+    if (e.target === statsBox && e.propertyName === 'height' && !foldOnly()) sheetSettled();
   });
   // A settle cut off by a change of layout never ends, so its inline
   // timing would stay behind for the next tap.
@@ -3855,7 +3904,8 @@ body.sheet-open #dock::after { opacity: 1; }
   const LAST = points.length - 1;
   const dock = document.getElementById('dock');
   const chart = document.getElementById('chart');
-  // The profile's places in words: the provinces in the order driven.
+  // The profile has no words of its own, so a screen reader hears the
+  // provinces it crosses and its high point.
   (function () {
     const names = visits.map(function (v) { return v.name; });
     if (!names.length) return;
@@ -4022,6 +4072,9 @@ body.sheet-open #dock::after { opacity: 1; }
   trackMarker.closeTooltip();
   const beats = [];
   let beatTimer = 0;
+  // tripEnd's refit waits for its label to be read, so a pick, a jump or
+  // a new play inside that wait must not be flown away from.
+  let endFitTimer = 0;
   let beatShownAt = 0;
   let beatOut = null;
   function showBeat(nodes, hold, side) {
@@ -4082,6 +4135,7 @@ body.sheet-open #dock::after { opacity: 1; }
     if (beatTimer) { clearTimeout(beatTimer); beatTimer = 0; }
     if (beatOut) { beatOut.cancel(); beatOut = null; }
     if (passTip.isOpen()) trackMarker.closeTooltip();
+    if (endFitTimer) { clearTimeout(endFitTimer); endFitTimer = 0; }
   }
   function textBeat(main, v) {
     const out = [el('span', '', main)];
@@ -4119,7 +4173,12 @@ body.sheet-open #dock::after { opacity: 1; }
     clearBeats();
     // Above the marker: the Start and End labels take its two sides there.
     showBeat(textBeat('Home', 'after ' + totals.days + ' days'), 4000, 'top');
-    if (!map.getBounds().contains(trackBounds)) setTimeout(function () { fitTo(trackBounds); }, 500);
+    if (!map.getBounds().contains(trackBounds)) {
+      endFitTimer = setTimeout(function () {
+        endFitTimer = 0;
+        if (!playing && selectedDay === null && current === LAST) fitTo(trackBounds);
+      }, 500);
+    }
   }
 
   let current = 0;
@@ -4355,8 +4414,9 @@ body.sheet-open #dock::after { opacity: 1; }
     if (p[2] > eleMax) eleMax = p[2];
   });
   // In em, so the reserved width follows the readout's size between the
-  // phone and desktop layouts.
-  // The divider's padding and border are pixels and stay out of the em.
+  // phone and desktop layouts. Only the content is held (the two readings
+  // are content-box): the divider's padding changes between layouts, and
+  // a width that held the load-time padding would be short after a turn.
   // Shown for the measure even where a narrow phone hides it, so a turn
   // to a wider layout finds the width already held.
   function holdWidth(node, texts) {
@@ -4369,7 +4429,7 @@ body.sheet-open #dock::after { opacity: 1; }
       readN[node.id].textContent = t;
       w = Math.max(w, node.getBoundingClientRect().width - extra);
     });
-    node.style.minWidth = 'calc(' + (w / px).toFixed(3) + 'em + ' + extra + 'px)';
+    node.style.minWidth = (w / px).toFixed(3) + 'em';
     node.style.display = '';
   }
   holdWidth(readEle, [fmtInt(eleMax), fmtInt(eleMin)]);
@@ -4666,11 +4726,13 @@ body.sheet-open #dock::after { opacity: 1; }
 
   // Where the province marks and the high point sit for a range: each
   // boundary at its km, each code at the left of its band where the band
-  // is wide enough for it, and the high point's label on whichever side
-  // of its dot leaves the next code inside its band. peakEnd forces the
-  // side, so a zoom keeps one side the whole way.
+  // is wide enough for it, and the high point's label beside its dot on
+  // a side that leaves the next code inside its band and keeps clear of
+  // the line, or above the dot. Zoomed to a day the summit is a plateau,
+  // and a label on it would cut a gap in the very stretch it names.
+  // peakSide forces the side, so a zoom keeps one side the whole way.
   const CODE_Y = 9;
-  function layoutMarks(dom, yd, peakEnd) {
+  function layoutMarks(dom, yd, peakSide) {
     const left = scale.left;
     const right = scale.W;
     const out = { codes: [], bounds: [], peak: null };
@@ -4686,31 +4748,60 @@ body.sheet-open #dock::after { opacity: 1; }
     const hp = points[totals.high_idx];
     const px = xAt(hp[4], dom);
     const py = yAt(hp[2], yd);
-    const peak = { x: px, y: py, show: px >= left && px <= right && py >= PAD.top - 1, end: false };
+    const peak = { x: px, y: py, show: px >= left && px <= right && py >= PAD.top - 1, side: 'start' };
     out.peak = peak;
     if (!peak.show) return out;
-    const nearCodes = py - 6 < codeBottom && py + 6 > codeTop;
-    function place(end) {
-      // The box covers the label and the dot, so a code moved past it
-      // clears both.
-      const l = end ? px - 6 - peakW : px - 3;
-      const r = end ? px + 3 : px + 6 + peakW;
-      const moved = out.codes.map(function (c, k) {
-        if (!c.show || !nearCodes || c.x >= r || c.x + provMarks[k].w <= l) return c;
-        const x = r + 2;
+    // The box covers the label and the dot, so a code moved past it
+    // clears both.
+    function box(side) {
+      if (side === 'top') return { l: px - peakW / 2 - 2, r: px + peakW / 2 + 2, t: py + topY(py) - 8, b: py - 3 };
+      if (side === 'end') return { l: px - 6 - peakW, r: px + 3, t: py - 6, b: py + 6 };
+      return { l: px - 3, r: px + 6 + peakW, t: py - 6, b: py + 6 };
+    }
+    function place(side) {
+      const b = box(side);
+      const near = b.t < codeBottom && b.b > codeTop;
+      return out.codes.map(function (c, k) {
+        if (!c.show || !near || c.x >= b.r || c.x + provMarks[k].w <= b.l) return c;
+        const x = b.r + 2;
         return { x: x, show: x + provMarks[k].w + 4 <= c.vb, vb: c.vb, pushed: true };
       });
-      return moved;
     }
-    let codes = place(false);
-    let end = peakEnd === true || (peakEnd === undefined && codes.some(function (c) { return c.pushed && !c.show; }));
-    if (end) codes = place(true);
-    // Against the right edge the label goes to the left of its dot.
-    if (!end && px + 6 + peakW > right) { end = true; codes = place(true); }
-    out.codes = codes;
-    peak.end = end;
+    // The line stays below the 10px text and its halo over the label's
+    // span: the highest fix under it is at least 7px under the dot.
+    function clearOfLine(l, r) {
+      const ka = dom.a + (Math.max(l, left) - left) * dom.w / scale.plotW;
+      const kb = dom.a + (Math.min(r, right) - left) * dom.w / scale.plotW;
+      if (kb <= ka) return true;
+      let top = -Infinity;
+      for (let i = nearestIndex(ka), ib = nearestIndex(kb); i <= ib; i++) top = Math.max(top, points[i][2]);
+      return yAt(top, yd) >= py + 7;
+    }
+    function losesCode(side) { return place(side).some(function (c) { return c.pushed && !c.show; }); }
+    // Above the dot nothing of the line can be in the way, as no fix is
+    // higher; it may share the codes' row, which make way as they do for
+    // the other sides, and it stays inside the chart.
+    function fits(side) {
+      const b = box(side);
+      if (b.l < left || b.r > right || losesCode(side)) return false;
+      if (side === 'top') return py >= 14;
+      return side === 'end' ? clearOfLine(px - 6 - peakW, px - 3) : clearOfLine(px + 3, px + 6 + peakW);
+    }
+    let side = peakSide;
+    if (side === undefined) side = ['start', 'end', 'top'].filter(fits)[0];
+    if (side === undefined) {
+      // Nowhere clear: the side that keeps the codes, and against the
+      // right edge the left of the dot.
+      side = losesCode('start') || px + 6 + peakW > right ? 'end' : 'start';
+    }
+    out.codes = place(side);
+    peak.side = side;
+    peak.ty = topY(py);
     return out;
   }
+  // Above its dot the label's baseline sits 8px up, or as far as the top
+  // of the chart allows on a short one; 6px up still clears the dot's ring.
+  function topY(py) { return -Math.min(8, Math.round((py - 8) * 10) / 10); }
   function applyMarks(lay) {
     lay.bounds.forEach(function (x, k) {
       if (provMarks[k].line) provMarks[k].line.style.transform = 'translate(' + (Math.round(x) + 0.5) + 'px, 0px)';
@@ -4722,8 +4813,11 @@ body.sheet-open #dock::after { opacity: 1; }
     });
     peakG.style.transform = 'translate(' + lay.peak.x.toFixed(1) + 'px, ' + lay.peak.y.toFixed(1) + 'px)';
     peakG.style.opacity = lay.peak.show ? '1' : '0';
-    peakText.setAttribute('x', lay.peak.end ? -6 : 6);
-    peakText.setAttribute('text-anchor', lay.peak.end ? 'end' : 'start');
+    const side = lay.peak.side;
+    peakText.setAttribute('x', side === 'end' ? -6 : side === 'top' ? 0 : 6);
+    peakText.setAttribute('y', side === 'top' ? lay.peak.ty : 0);
+    peakText.setAttribute('dy', side === 'top' ? '0' : '0.35em');
+    peakText.setAttribute('text-anchor', side === 'end' ? 'end' : side === 'top' ? 'middle' : 'start');
   }
 
   // Ticks on round steps for the range shown. The whole trip keeps its
@@ -4930,7 +5024,7 @@ body.sheet-open #dock::after { opacity: 1; }
       rideY(t, Number(t.getAttribute('data-v')), fadeInLate, 'none');
     });
     // The province marks and the high point ride along by translate only.
-    const lays = doms.map(function (d, k) { return layoutMarks(d, ydoms[k], lay.peak.end); });
+    const lays = doms.map(function (d, k) { return layoutMarks(d, ydoms[k], lay.peak.side); });
     const first = lays[0];
     provMarks.forEach(function (m, k) {
       if (m.line) {
@@ -4977,6 +5071,7 @@ body.sheet-open #dock::after { opacity: 1; }
     // The hit rect under the pointer is about to go, and with it the
     // pointerleave that would end the scrub.
     motion('scrub', false);
+    hideHover();
     motion('cursor', false);
     stopZoom();
     while (chart.firstChild) chart.removeChild(chart.firstChild);
@@ -5013,7 +5108,7 @@ body.sheet-open #dock::after { opacity: 1; }
     // a day scales them to its own range by transform.
     const y = function (m) { return PAD.top + plotH * (yBase.hi - m) / (yBase.hi - yBase.lo); };
     const bottom = Math.round(PAD.top + plotH) + 0.5;
-    scale = { x: x, y: y, left: left, plotW: plotW, plotH: plotH, W: W, H: H, bottom: bottom };
+    scale = { x: x, left: left, plotW: plotW, plotH: plotH, W: W, H: H, bottom: bottom };
     yDom = yDomainFor(xDom);
 
     yG = drawYGrid(yDom, chart, null);
