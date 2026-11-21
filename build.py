@@ -392,7 +392,7 @@ def find_records(days, nights, spans, dates, starts, ends, own, tz):
         add("longest_day", "Longest day", "%s km" % format(days[d]["km"], ",.1f"), d)
     d = pick(moving, lambda d: days[d]["moving_h"])
     if d is not None:
-        add("longest_wheel", "Longest at the wheel", "%.1f h" % days[d]["moving_h"], d)
+        add("longest_wheel", "Most hours", "%.1f h" % days[d]["moving_h"], d)
     d = pick(moving, lambda d: days[d]["gain_m"])
     if d is not None:
         add("most_climbing", "Most climbing", "%s m" % format(days[d]["gain_m"], ",d"), d)
@@ -622,6 +622,13 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
     points = [[round(p["lat"], 6), round(p["lon"], 6), int(round(p["ele_s"])),
                int(p["t"].timestamp()), round(c / 1000.0, 2), p["day"]]
               for p, c in zip(pts, cum)]
+    # The speed of the step that leaves each fix, for the map's speed
+    # colouring. Raw chord speed like the moving test, not the scaled
+    # distance, and 0 across a gap, where the device was off and the
+    # straight line between the two fixes says nothing about the driving.
+    for i, p in enumerate(points):
+        s = steps[i] if i < len(steps) else None
+        p.append(0 if s is None or s["gap"] else int(round(s["speed"])))
 
     nights, spans = find_nights(pts)
     totals["nights"] = sum(sp["nights"] for sp in nights)
