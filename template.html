@@ -6,6 +6,20 @@
 <title>__TRIP_TITLE__</title>
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#e6e5e2">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#141518">
+<script>
+// A picked theme goes on before the first paint, or the page would show
+// the system's theme for a frame and then flip. Storage can be missing.
+(function () {
+  try {
+    var t = window.localStorage.getItem('roadtrip-theme');
+    if (t !== 'light' && t !== 'dark') return;
+    document.documentElement.setAttribute('data-theme', t);
+    var c = t === 'dark' ? '#141518' : '#e6e5e2';
+    var m = document.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < m.length; i++) m[i].setAttribute('content', c);
+  } catch (e) { /* the system theme it is */ }
+})();
+</script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
@@ -63,6 +77,14 @@
   /* A fix no station was near enough to read: grey, so it reads as
      missing rather than as one more temperature. */
   --no-reading: #9a9aa4;
+  /* The calendar's km per day: one neutral ramp, since a distance is a
+     quantity and the accent is kept for the picked day's ring. Steps
+     mixed from the ink into the solid glass and checked with the dataviz
+     validator (monotone, every gap at least 0.06 in L); the three light
+     steps take ink figures and the two dark ones the surface colour, each
+     at 4.7:1 or more. The lightest may sit close to the panel, as near
+     nothing should. */
+  --cal-0: #dadadc; --cal-1: #bbbbbd; --cal-2: #97979a; --cal-3: #6e6e72; --cal-4: #444448;
 
   /* Glass for the data surfaces, close to opaque so small numbers keep
      their contrast over a busy map. The pill only carries the title. */
@@ -100,14 +122,18 @@
 
   /* The open sheet height, here so the script can read the final height
      from a probe the moment the sheet starts to open. The handle, dock and
-     bottom gap take about 220px, so the cap keeps about 146px of map. */
-  --sheet-open: min(50vh, calc(100vh - 366px));
+     bottom gap take about 252px, so the cap keeps about 146px of map. */
+  --sheet-open: min(50vh, calc(100vh - 398px));
 }
 @supports (height: 100dvh) {
-  :root { --sheet-open: min(50dvh, calc(100dvh - 366px)); }
+  :root { --sheet-open: min(50dvh, calc(100dvh - 398px)); }
 }
+/* Dark, either from the system or picked with the theme button. The
+   tokens are written twice because CSS has no way to share one block
+   between a media query and an attribute; a picked light theme opts out
+   of the system's dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --accent: #a79bfe;
     --accent-ink: #17122f;
     --accent-soft: rgba(167, 155, 254, 0.16);
@@ -130,6 +156,7 @@
     --spd-0: #107460; --spd-1: #008f77; --spd-2: #19aa8e; --spd-3: #42c3a6; --spd-4: #78dac0; --spd-5: #adeedb;
     --tmp-0: #9d4600; --tmp-1: #c05800; --tmp-2: #dd6f23; --tmp-3: #f08e54; --tmp-4: #f9b189; --tmp-5: #fdd4be;
     --no-reading: #6c6e78;
+    --cal-0: #38393e; --cal-1: #515257; --cal-2: #6b6b70; --cal-3: #a1a2a5; --cal-4: #cbcbcf;
 
     --glass: rgba(28, 29, 34, 0.86);
     --glass-pill: rgba(28, 29, 34, 0.72);
@@ -155,6 +182,57 @@
     --route-shade: rgba(0, 0, 0, 0.26);
   }
 }
+:root[data-theme="dark"] {
+  --accent: #a79bfe;
+  --accent-ink: #17122f;
+  --accent-soft: rgba(167, 155, 254, 0.16);
+  --accent-glow: rgba(167, 155, 254, 0.24);
+
+  --text: #f1f1f4;
+  --muted: #a6a6b2;
+  --faint: #7b7b86;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --track: rgba(255, 255, 255, 0.14);
+  --row-hover: rgba(255, 255, 255, 0.05);
+  --share: rgba(241, 241, 244, 0.30);
+  --prov-on: #e66767;
+  --prov-mb: #3987e5;
+  --prov-sk: #c98500;
+  --prov-ab: #d55181;
+  --prov-bc: #0ca30c;
+  --prov-edge: transparent;
+  --ele-0: #3263a6; --ele-1: #3f7acb; --ele-2: #5793e6; --ele-3: #79adf6; --ele-4: #9fc7fe; --ele-5: #cce0fc;
+  --spd-0: #107460; --spd-1: #008f77; --spd-2: #19aa8e; --spd-3: #42c3a6; --spd-4: #78dac0; --spd-5: #adeedb;
+  --tmp-0: #9d4600; --tmp-1: #c05800; --tmp-2: #dd6f23; --tmp-3: #f08e54; --tmp-4: #f9b189; --tmp-5: #fdd4be;
+  --no-reading: #6c6e78;
+  --cal-0: #38393e; --cal-1: #515257; --cal-2: #6b6b70; --cal-3: #a1a2a5; --cal-4: #cbcbcf;
+
+  --glass: rgba(28, 29, 34, 0.86);
+  --glass-pill: rgba(28, 29, 34, 0.72);
+  --glass-solid: #1f2025;
+  --glass-edge: rgba(255, 255, 255, 0.07);
+  --surface: #2a2b31;
+  --shadow-float:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 8px 24px rgba(0, 0, 0, 0.32),
+    0 24px 56px rgba(0, 0, 0, 0.40);
+  --shadow-chip: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.30);
+  --thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --map-bg: #141518;
+  --casing: #111216;
+  /* Inverting the OSM raster gives a dark map without a second tile
+     source; the grey pass then drops what is left of the hues. */
+  --tiles: invert(1) hue-rotate(180deg) grayscale(1) brightness(0.72) contrast(0.86);
+  /* A white ring on the dark map made the nights the loudest marks
+     there, louder than the route they sit on. */
+  --night-fill: #8b8f99;
+  --night-ring: #111216;
+  --route-shade: rgba(0, 0, 0, 0.26);
+}
+/* A picked theme sets the native controls and scrollbars to match. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -1331,8 +1409,11 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   min-width: 0;
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
-  grid-template-rows: 26px 80px 48px;
-  grid-template-areas: "read read read" "chart chart chart" "play rate scrub";
+  /* The chart's picker has a row of its own above the chart wherever the
+     header row has no room for it beside the readout: on every phone and
+     in a narrow dock. A wide dock puts it in the header (#dock.wide). */
+  grid-template-rows: 26px 32px 80px 48px;
+  grid-template-areas: "read read read" "tools tools tools" "chart chart chart" "play rate scrub";
   column-gap: 12px;
   padding: 0 var(--gut) 14px;
 }
@@ -1547,7 +1628,13 @@ body.sheet-open #dock::after { opacity: 1; }
 #readout .temp.none .unit { display: none; }
 /* The narrowest phones have no room for a fourth number in the readout;
    the day card still shows the day's high and low. */
-@media (max-width: 359px) { #readout .temp { display: none; } }
+@media (max-width: 359px) {
+  #readout .temp { display: none; }
+  /* With the chart on another reading, that reading takes the height's
+     place, so the readout still names what the chart shows. */
+  #readout.alt .temp { display: inline-block; }
+  #readout.alt #readout-ele { display: none; }
+}
 
 @media (max-width: 767px) {
   /* With the sheet open the map is about a quarter of the screen and the
@@ -1596,22 +1683,24 @@ body.sheet-open #dock::after { opacity: 1; }
 @media (max-width: 767px) and (min-height: 500px) {
   #dock { transition: grid-template-rows 0.32s var(--ease), padding-bottom 0.32s var(--ease); }
   #chart { height: 80px; align-self: start; transition: opacity 0.2s var(--ease), visibility 0s; }
-  body.dock-condensed #dock { grid-template-rows: 26px 0px 48px; padding-bottom: 10px; }
-  body.dock-condensed #chart { opacity: 0; visibility: hidden; transition: opacity 0.2s var(--ease), visibility 0s 0.2s; }
+  #dock-tools { transition: opacity 0.2s var(--ease), visibility 0s; }
+  body.dock-condensed #dock { grid-template-rows: 26px 0px 0px 48px; padding-bottom: 10px; }
+  body.dock-condensed #chart, body.dock-condensed #dock-tools { opacity: 0; visibility: hidden; transition: opacity 0.2s var(--ease), visibility 0s 0.2s; }
   body.sheet-open.dock-fold #stats { transition: height 0.32s var(--ease), visibility 0s; }
-  body.sheet-open.dock-condensed #stats { height: calc(var(--sheet-open) + 84px); }
+  /* The chart's 80px, the picker's 32px and 4px of padding. */
+  body.sheet-open.dock-condensed #stats { height: calc(var(--sheet-open) + 116px); }
 }
 /* A phone on its side: the open sheet takes nearly all the height so the
    stats get real room, with a smaller chart and a strip of map left. The
    handle loses its grip and the readout moves beside the play button to
-   give the stats every row it can spare. 236px is 96 of map, the 26px
-   handle and the 114px dock; the bottom row is added as it really is, so
+   give the stats every row it can spare. 264px is 96 of map, the 26px
+   handle and the 142px dock; the bottom row is added as it really is, so
    a home indicator inset never eats into the map. The floor keeps the
    sticky header and one whole row in view on the shortest screens. */
 @media (max-width: 767px) and (max-height: 499px) {
-  :root { --sheet-open: max(76px, calc(100vh - 236px - max(8px, env(safe-area-inset-bottom, 0px)))); }
+  :root { --sheet-open: max(76px, calc(100vh - 264px - max(8px, env(safe-area-inset-bottom, 0px)))); }
   @supports (height: 100dvh) {
-    :root { --sheet-open: max(76px, calc(100dvh - 236px - max(8px, env(safe-area-inset-bottom, 0px)))); }
+    :root { --sheet-open: max(76px, calc(100dvh - 264px - max(8px, env(safe-area-inset-bottom, 0px)))); }
   }
   #handle { height: 26px; }
   #handle .grip { display: none; }
@@ -1621,8 +1710,8 @@ body.sheet-open #dock::after { opacity: 1; }
      40 by 40, which also keeps a tap a little low off the chart. */
   #handle-clear::after { content: ""; position: absolute; top: -7px; right: -4px; bottom: -7px; left: -4px; }
   #dock {
-    grid-template-rows: 64px 20px 26px;
-    grid-template-areas: "chart chart chart" "play rate read" "play rate scrub";
+    grid-template-rows: 28px 64px 20px 26px;
+    grid-template-areas: "tools tools tools" "chart chart chart" "play rate read" "play rate scrub";
     padding-bottom: 4px;
   }
   /* Beside the play button the readout has a phone's width less 80px, so
@@ -1630,6 +1719,8 @@ body.sheet-open #dock::after { opacity: 1; }
      phones; the day card still has the day's high and low. */
   #readout > span + span { margin-left: 8px; padding-left: 8px; }
   #readout .temp { display: none; }
+  #readout.alt .temp { display: inline-block; }
+  #readout.alt #readout-ele { display: none; }
   /* The strip of map left above the open sheet is too short for both the
      zoom buttons and the attribution; pinch still zooms. */
   body.sheet-open .leaflet-control-zoom, body.sheet-open .view-bar { visibility: hidden; }
@@ -1685,7 +1776,7 @@ body.sheet-open #dock::after { opacity: 1; }
   #totals .hero dd { font-size: 52px; }
   #days td { --edge: 10px; }
   #dock {
-    grid-template-rows: 34px 104px 48px;
+    grid-template-rows: 34px 30px 104px 48px;
     column-gap: 16px;
     padding: 4px var(--gut) 16px;
     border-radius: var(--r-card);
@@ -1695,6 +1786,11 @@ body.sheet-open #dock::after { opacity: 1; }
     box-shadow: var(--shadow-float), inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--hairline);
   }
   #dock::after { display: none; }
+  #dock.wide {
+    grid-template-rows: 34px 104px 48px;
+    grid-template-areas: "read read read" "chart chart chart" "play rate scrub";
+  }
+  #dock.wide #dock-tools { grid-area: read; justify-self: end; }
   #play { width: 40px; height: 40px; }
   #readout { font-size: 13px; }
   #readout .when { font-size: 14px; }
@@ -1746,7 +1842,8 @@ body.sheet-open #dock::after { opacity: 1; }
 /* A phone on its side takes the desktop layout; a shorter dock leaves
    the map more than a strip. */
 @media (min-width: 768px) and (max-height: 499px) {
-  #dock { grid-template-rows: 28px 64px 44px; padding: 2px var(--gut) 10px; }
+  #dock { grid-template-rows: 28px 28px 64px 44px; padding: 2px var(--gut) 10px; }
+  #dock.wide { grid-template-rows: 28px 64px 44px; }
   #readout { font-size: 12px; }
   #readout .when { font-size: 13px; }
 }
@@ -2210,9 +2307,7 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
 /* The shortcuts button, for a keyboard and a mouse only: at the right
    end of the dock's header row, where the readout leaves room. */
 #keys-btn {
-  grid-area: read;
-  justify-self: end;
-  align-self: center;
+  flex: none;
   display: none;
   width: 28px;
   height: 28px;
@@ -2246,6 +2341,10 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
    floats to the left of the zoom instead. */
 @media (max-height: 499px) {
   .leaflet-top .leaflet-control.view-bar { clear: none; margin-top: calc(var(--inset) + env(safe-area-inset-top, 0px)); margin-right: 8px; }
+  /* Five buttons stacked would reach the sheet, so they run in a row,
+     with the dividers standing upright between them. */
+  .view-bar { display: flex; }
+  .view-bar > :not(:last-child)::after { left: auto; right: 0; top: 10px; bottom: 10px; width: 1px; height: auto; }
 }
 @media (max-width: 767px) {
   body.sheet-open .view-bar { opacity: 0; visibility: hidden; transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s; }
@@ -2341,8 +2440,9 @@ body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b
 }
 #keys::backdrop { background: rgba(10, 10, 20, 0.32); }
 @media (prefers-color-scheme: dark) {
-  #keys::backdrop { background: rgba(0, 0, 0, 0.5); }
+  :root:not([data-theme="light"]) #keys::backdrop { background: rgba(0, 0, 0, 0.5); }
 }
+:root[data-theme="dark"] #keys::backdrop { background: rgba(0, 0, 0, 0.5); }
 #keys[open]::backdrop { animation: backdrop-in 0.2s var(--ease); }
 @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 .keys-head {
@@ -2383,9 +2483,194 @@ kbd {
 }
 .keys-note { margin: 0; padding: 0 20px 18px; font-size: 12px; color: var(--muted); }
 
+/* The chart's picker and the shortcuts button. In a row of their own
+   the picker leads and the button keeps the far end. */
+#dock-tools {
+  grid-area: tools;
+  align-self: center;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* The same sliding pill as Colour by, a size down, since it sits in the
+   dock among the readings rather than heading the panel. */
+.seg.mini { flex: none; padding: 2px; }
+.seg.mini .thumb { top: 2px; bottom: 2px; }
+.seg.mini button { flex: none; height: 26px; padding: 0 10px; font-size: 12px; }
+/* Fingers still get 40px, reaching a few pixels past the pill. */
+.seg.mini button::after { content: ""; position: absolute; top: -7px; bottom: -7px; left: 0; right: 0; }
+@media (pointer: coarse) {
+  .seg.mini button { height: 26px; }
+}
+.seg .short { display: none; }
+@media (max-width: 359px) {
+  .seg .long { display: none; }
+  .seg .short { display: inline; }
+  .seg.mini button { padding: 0 8px; }
+}
+
+/* Follow, in the bar with fit: on, the map keeps the marker in the
+   middle of what is open while it plays. */
+.view-bar button.follow .core { fill: currentColor; stroke: none; opacity: 0; transition: opacity 0.15s var(--ease); }
+.view-bar button.follow[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.view-bar button.follow[aria-pressed="true"] .core { opacity: 1; }
+
+/* The wind's picture in the readout, the size of the figures. */
+#readout .glyph { display: none; width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+#readout .temp.wind .glyph { display: inline-block; }
+
+/* The comet behind the playing marker fades in and out as a whole. */
+.leaflet-trail-pane { pointer-events: none; transition: opacity 0.4s var(--ease); }
+.leaflet-trail-pane.off { opacity: 0; }
+
+/* Trip calendar. A week a row from Sunday, as a Canadian calendar is
+   set, each day shaded by how far I drove; the picked day carries the
+   accent ring and the day the marker is on a short line in its colour. */
+#calendar { padding: 0 var(--gut); }
+#calendar .section-head { padding-left: 0; padding-right: 0; }
+.cal-wd, .cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.cal-wd span {
+  padding-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--muted);
+}
+/* The cells have no gap between them so each target is the full
+   seventh; the 2px padding draws the gap inside it. */
+.cal-grid > * { height: 40px; padding: 2px; }
+/* On the narrowest panel a seventh is a pixel short of a finger's 40px,
+   so the grid reaches 4px into the gutter on each side; the drawn cells
+   stay inside it by their 2px padding. */
+@container panel (max-width: 319px) {
+  .cal-wd, .cal-grid { margin: 0 -4px; }
+}
+@media (pointer: fine) {
+  .cal-grid > * { height: 34px; }
+}
+.cal-day {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: box-shadow 0.15s var(--ease), transform 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.cal-day.k0, .cal-day.k1, .cal-day.k2, .cal-day.k3, .cal-day.k4 { box-shadow: none; }
+.cal-day.k0 { background: var(--cal-0); }
+.cal-day.k1 { background: var(--cal-1); }
+.cal-day.k2 { background: var(--cal-2); }
+.cal-day.k3 { background: var(--cal-3); color: var(--glass-solid); }
+.cal-day.k4 { background: var(--cal-4); color: var(--glass-solid); }
+/* No driving reads as a gap in the trip, not as a light day. */
+.cal-day.empty { color: var(--muted); font-weight: 500; }
+.cal-day .mo { font-size: 10.5px; font-weight: 500; margin-right: 2px; }
+/* The picked day: an accent ring inside the cell with a sliver of panel
+   between it and the fill, so it holds on the darkest step too. */
+.cal-day.picked { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 0 3.5px var(--glass-solid); }
+.cal-day.here::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 12px;
+  height: 3px;
+  margin-left: -6px;
+  border-radius: 2px;
+  background: var(--day);
+  box-shadow: 0 0 0 1px var(--glass-solid);
+}
+@media (pointer: fine) {
+  .cal-day.here::after { bottom: 3px; }
+}
+@media (hover: hover) {
+  .cal-day:hover { transform: translateY(-1px); box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline); }
+  .cal-day.picked:hover { box-shadow: var(--shadow-chip), inset 0 0 0 2px var(--accent), inset 0 0 0 3.5px var(--glass-solid); }
+}
+.cal-day:active { transform: scale(0.94); }
+.cal-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 1; }
+.cal-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+  margin-top: 6px;
+}
+.cal-key {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cal-key .steps { display: flex; gap: 2px; }
+.cal-key i { width: 10px; height: 10px; border-radius: 2px; }
+.cal-key i:nth-child(1) { background: var(--cal-0); }
+.cal-key i:nth-child(2) { background: var(--cal-1); }
+.cal-key i:nth-child(3) { background: var(--cal-2); }
+.cal-key i:nth-child(4) { background: var(--cal-3); }
+.cal-key i:nth-child(5) { background: var(--cal-4); }
+
+/* One quiet line at the foot of the panel. */
+#colophon {
+  margin: 0 var(--gut);
+  padding: 16px 0 28px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* The theme button shows the theme in use: the sun, the moon, or half
+   of each for the system's. */
+.view-bar .theme svg { display: none; }
+.view-bar .theme[data-pick="auto"] .icon-auto,
+.view-bar .theme[data-pick="light"] .icon-light,
+.view-bar .theme[data-pick="dark"] .icon-dark { display: block; }
+.view-bar .theme .icon-auto .fill { fill: currentColor; stroke: none; }
+
+/* A change of theme is a circle growing out of the button, drawn by the
+   script over a still picture of the page as it was; the browser's own
+   cross fade between the two pictures is turned off for it. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+/* Where there are no view transitions, the colours ease instead. Every
+   transition list is replaced for the moment it runs, so only colours
+   move. */
+/* For the frame the theme changes in, nothing transitions: each colour
+   that eases would repaint the page under the tiles' filter for 150ms,
+   and the circle would sweep over a page still settling. */
+html.theme-snap, html.theme-snap *, html.theme-snap *::before, html.theme-snap *::after { transition: none !important; }
+html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after {
+  transition: background-color 0.28s var(--ease), color 0.28s var(--ease), border-color 0.28s var(--ease),
+    fill 0.28s var(--ease), stroke 0.28s var(--ease), box-shadow 0.28s var(--ease) !important;
+}
+
 @media (forced-colors: active) {
   .legend .bar, .legend .none i, .track-tip::before { forced-color-adjust: none; }
   .seg button[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  .cal-day, .cal-key i { forced-color-adjust: none; }
+  .cal-day.picked { outline: 2px solid Highlight; outline-offset: -2px; }
+  .view-bar button.follow[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -5px; }
 }
 </style>
 </head>
@@ -2432,9 +2717,18 @@ kbd {
       <span id="readout-km" class="km"></span>
     </output>
   </div>
-  <button id="keys-btn" class="icon-btn" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keyboard shortcuts (?)">
-    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"></rect><path d="M4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4 9.6h.01M12 9.6h.01M6.2 9.6h3.6"></path></svg>
-  </button>
+  <div id="dock-tools">
+    <div id="metric" class="seg mini" role="group" aria-label="Chart">
+      <span class="thumb" aria-hidden="true"></span>
+      <button type="button" data-metric="ele" aria-pressed="true">Elevation</button>
+      <button type="button" data-metric="speed" aria-pressed="false">Speed</button>
+      <button type="button" data-metric="temp" aria-pressed="false" aria-label="Temperature"><span class="long" aria-hidden="true">Temperature</span><span class="short" aria-hidden="true">Temp</span></button>
+      <button type="button" data-metric="wind" aria-pressed="false">Wind</button>
+    </div>
+    <button id="keys-btn" class="icon-btn" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keyboard shortcuts (?)">
+      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"></rect><path d="M4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4 9.6h.01M12 9.6h.01M6.2 9.6h3.6"></path></svg>
+    </button>
+  </div>
 </div>
 <aside id="stats" aria-label="Trip stats">
   <section id="colour" aria-labelledby="colour-head">
@@ -2483,6 +2777,15 @@ kbd {
     <h2 id="records-head" class="section-head">Records</h2>
     <dl id="record-list"></dl>
   </section>
+  <section id="calendar" aria-labelledby="cal-head">
+    <h2 id="cal-head" class="section-head">Calendar</h2>
+    <div class="cal-wd" aria-hidden="true"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+    <div id="cal-grid" class="cal-grid" role="group" aria-labelledby="cal-head"></div>
+    <div class="cal-foot">
+      <p id="cal-note" class="timeline-note" aria-hidden="true"></p>
+      <p class="cal-key" aria-hidden="true"><span class="lo"></span><span class="steps"><i></i><i></i><i></i><i></i><i></i></span><span class="hi"></span></p>
+    </div>
+  </section>
   <h2 id="days-head" class="section-head">Days</h2>
   <div id="days-wrap">
   <table id="days" class="collapsed" aria-labelledby="days-head">
@@ -2517,6 +2820,7 @@ kbd {
     </div>
     <dl id="province-list"></dl>
   </section>
+  <p id="colophon">Built by hand: Python standard library for the data, Leaflet for the map, plain SVG for the charts.</p>
 </aside>
 <div id="sheet-probe" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -3448,6 +3752,148 @@ kbd {
     if (tr) selectDay(Number(tr.getAttribute('data-day')), 'row', tr.querySelector('.day-row'));
   });
 
+  // Trip calendar. A week a row, each day a button that picks the day the
+  // way its row does, shaded by the km driven in five even steps of a
+  // round size. One tab stop for the grid: the arrows move between days
+  // (up and down a week), Home and End to the ends of the week, and with
+  // Ctrl to the first and last day.
+  const calGrid = document.getElementById('cal-grid');
+  const calNote = document.getElementById('cal-note');
+  const calCells = [];
+  const CAL_BINS = 5;
+  const calStep = niceStep(kmMax / CAL_BINS);
+  // The column each day falls in, from its date, so a missing date would
+  // leave its own gap rather than shift the week.
+  const calCol = [];
+  let calFocus = 0;
+  let calHere = -1;
+  let calPointed = -1;
+  // A day with no driving, or only the few hundred metres a parked
+  // device drifts overnight, is empty.
+  function calEmpty(d) { return TRIP.days[d].km < 1; }
+  function calWords(d) { return calEmpty(d) ? 'no driving' : fmt1(TRIP.days[d].km) + ' km'; }
+  (function () {
+    const ms = 86400000;
+    const utc = function (date) { const p = date.split('-'); return Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])); };
+    const first = utc(TRIP.days[0].date);
+    const lead = new Date(first).getUTCDay();
+    let slot = 0;
+    for (; slot < lead; slot++) calGrid.appendChild(el('span', 'pad'));
+    TRIP.days.forEach(function (day, d) {
+      const at = lead + Math.round((utc(day.date) - first) / ms);
+      for (; slot < at; slot++) calGrid.appendChild(el('span', 'pad'));
+      calCol.push(at % 7);
+      const cell = el('span');
+      const b = el('button', 'cal-day');
+      b.type = 'button';
+      b.tabIndex = d === 0 ? 0 : -1;
+      b.setAttribute('data-day', String(d));
+      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', weekdayLabel(d) + ', ' + calWords(d));
+      const parts = day.label.split(' ');
+      // The month is named where it starts, on the first day and the 1st.
+      if (d === 0 || parts[1] === '1') b.appendChild(el('span', 'mo', parts[0]));
+      b.appendChild(document.createTextNode(parts[1]));
+      if (calEmpty(d)) b.classList.add('empty');
+      else b.classList.add('k' + Math.min(CAL_BINS - 1, Math.floor(day.km / calStep)));
+      cell.appendChild(b);
+      calGrid.appendChild(cell);
+      calCells.push(b);
+      slot++;
+    });
+    const key = document.querySelector('#calendar .cal-key');
+    key.querySelector('.lo').textContent = '0';
+    key.querySelector('.hi').textContent = fmtInt(calStep * CAL_BINS) + ' km';
+  })();
+  // The note names the day under the pointer or the focus, or else the
+  // picked one.
+  function noteCal(d) {
+    calPointed = d;
+    const show = d >= 0 ? d : selectedDay;
+    while (calNote.firstChild) calNote.removeChild(calNote.firstChild);
+    if (show === null || show < 0) return;
+    calNote.appendChild(el('b', '', weekdayLabel(show)));
+    calNote.appendChild(el('span', '', calWords(show)));
+  }
+  function setCalFocus(d, focus) {
+    if (d === calFocus && !focus) return;
+    calCells[calFocus].tabIndex = -1;
+    calFocus = d;
+    calCells[d].tabIndex = 0;
+    if (focus) calCells[d].focus();
+  }
+  // The picked day is outlined and holds the tab stop, so Tab lands on it.
+  function markCalendar() {
+    calCells.forEach(function (b, d) {
+      const on = d === selectedDay;
+      b.classList.toggle('picked', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (selectedDay !== null) setCalFocus(selectedDay, false);
+    if (calPointed < 0) noteCal(-1);
+  }
+  // The day the marker is on carries a short line in its colour, so the
+  // calendar ticks along while the trip plays.
+  function markCalHere(d) {
+    if (d === calHere) return;
+    if (calHere >= 0) calCells[calHere].classList.remove('here');
+    calHere = d;
+    calCells[d].style.setProperty('--day', TRIP.days[d].color);
+    calCells[d].classList.add('here');
+  }
+  calGrid.addEventListener('click', function (e) {
+    if (e.detail && performance.now() - dragEndedAt < 400) return;
+    const b = e.target.closest('.cal-day');
+    if (!b) return;
+    const d = Number(b.getAttribute('data-day'));
+    setCalFocus(d, false);
+    selectDay(d, 'row', b);
+  });
+  // A finger has no hover; its tap picks the day, which the note shows.
+  calGrid.addEventListener('pointerover', function (e) {
+    const b = e.target.closest('.cal-day');
+    if (!b || e.pointerType !== 'mouse') return;
+    const d = Number(b.getAttribute('data-day'));
+    noteCal(d);
+    hoverRow(d);
+  });
+  calGrid.addEventListener('pointerleave', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    if (calGrid.contains(document.activeElement)) noteCal(Number(document.activeElement.getAttribute('data-day')));
+    else noteCal(-1);
+    hoverRow(null);
+  });
+  calGrid.addEventListener('focusin', function (e) {
+    const b = e.target.closest('.cal-day');
+    if (!b) return;
+    const d = Number(b.getAttribute('data-day'));
+    setCalFocus(d, false);
+    noteCal(d);
+  });
+  calGrid.addEventListener('focusout', function (e) {
+    if (!calGrid.contains(e.relatedTarget)) noteCal(-1);
+  });
+  calGrid.addEventListener('keydown', function (e) {
+    const b = e.target.closest('.cal-day');
+    if (!b || e.altKey || e.metaKey) return;
+    const d = Number(b.getAttribute('data-day'));
+    const last = calCells.length - 1;
+    let to = null;
+    if (e.key === 'ArrowLeft') to = d - 1;
+    else if (e.key === 'ArrowRight') to = d + 1;
+    else if (e.key === 'ArrowUp') to = d - 7;
+    else if (e.key === 'ArrowDown') to = d + 7;
+    else if (e.key === 'Home') to = e.ctrlKey ? 0 : Math.max(0, d - calCol[d]);
+    else if (e.key === 'End') to = e.ctrlKey ? last : Math.min(last, d + 6 - calCol[d]);
+    else return;
+    // Taken here, or the page's own shortcuts would move the marker too.
+    e.preventDefault();
+    // Up from the first week or down from the last stays put, as the
+    // edge of a grid does.
+    if (to < 0 || to > last) return;
+    setCalFocus(to, true);
+  });
+
   // Sorting moves the existing rows rather than rebuilding them, so the
   // selection and the buttons' state survive. Ties fall back to date order.
   const headers = Array.prototype.slice.call(document.querySelectorAll('#days th'));
@@ -3580,6 +4026,7 @@ kbd {
       // selected along with the label.
       trs[i].classList.toggle('selected', i === selectedDay);
     });
+    markCalendar();
     recordCards.forEach(function (r) {
       r.node.classList.toggle('current', r.day === selectedDay);
       if (r.day === selectedDay) r.button.setAttribute('aria-current', 'true');
@@ -3724,8 +4171,9 @@ kbd {
   const cardLive = document.getElementById('dc-live');
   const prevBtn = document.getElementById('dc-prev');
   const nextBtn = document.getElementById('dc-next');
-  const underCard = [totalsEl, document.getElementById('records'), document.getElementById('days-head'),
-    document.getElementById('days'), document.getElementById('provinces')];
+  const underCard = [totalsEl, document.getElementById('records'), document.getElementById('calendar'),
+    document.getElementById('days-head'), document.getElementById('days'), document.getElementById('provinces'),
+    document.getElementById('colophon')];
   const CARD_MS = 320;
   let cardDay = null;
   let cardFrom = null;
@@ -4129,8 +4577,9 @@ kbd {
     statsBox.style.transitionDuration = '';
     statsBox.style.transitionDelay = '';
   }
-  // On a phone tall enough for it, the chart folds away while the stats
-  // scroll, which gives them its 84px, and comes back at the top. The
+  // On a phone tall enough for it, the chart and its picker fold away
+  // while the stats scroll, which gives them their 116px, and come back
+  // at the top. The
   // fold class times the stats' height to the dock's, so the sheet's top
   // edge stays put while the two trade the space.
   const foldQuery = typeof window.matchMedia === 'function'
@@ -4183,11 +4632,11 @@ kbd {
   // The handle and, on a phone, the readout under it both drag the sheet:
   // the readout is the larger target and sits where the thumb already is.
   const readoutEl = document.getElementById('readout');
-  // Folded, the open stats are taller by the chart's 84px (the condensed
-  // rule in the CSS), and the fold holds through the drag. Measured
-  // against the unfolded height the sheet would jump down on pick up and
-  // the first 84px of pull would be rubber band.
-  const DOCK_FOLD = 84;
+  // Folded, the open stats are taller by the chart's and the picker's
+  // 116px (the condensed rule in the CSS), and the fold holds through the
+  // drag. Measured against the unfolded height the sheet would jump down
+  // on pick up and the first 116px of pull would be rubber band.
+  const DOCK_FOLD = 116;
   function openHeight() {
     return sheetProbe.offsetHeight + (document.body.classList.contains('dock-condensed') ? DOCK_FOLD : 0);
   }
@@ -4423,14 +4872,6 @@ kbd {
   const LAST = points.length - 1;
   const dock = document.getElementById('dock');
   const chart = document.getElementById('chart');
-  // The profile has no words of its own, so a screen reader hears the
-  // provinces it crosses and its high point.
-  (function () {
-    const names = visits.map(function (v) { return v.name; });
-    if (!names.length) return;
-    const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
-    chart.setAttribute('aria-label', 'Elevation along the trip, through ' + list + ', highest ' + fmtInt(totals.high_m) + ' m');
-  })();
   const slider = document.getElementById('scrub');
   const playBtn = document.getElementById('play');
   const readWhen = document.getElementById('readout-when');
@@ -4448,6 +4889,10 @@ kbd {
     r[0].appendChild(n);
     r[0].appendChild(el('span', 'unit', r[1]));
   });
+  // Wind and speed share a unit, so the wind carries its picture.
+  const windGlyph = lineIcon('0 0 16 16', WX_WIND);
+  windGlyph.setAttribute('class', 'glyph');
+  readTemp.insertBefore(windGlyph, readTemp.firstChild);
   // The slider runs on the chart's scale, kilometres, so its thumb and
   // the chart cursor above it stay together along the whole trip.
   slider.max = String(Math.round(totals.km));
@@ -4738,6 +5183,7 @@ kbd {
       const color = TRIP.days[shownDay].color;
       trackEl.style.setProperty('--day', color);
       readWhen.style.setProperty('--day', color);
+      markCalHere(shownDay);
       // The route doubles back on itself, so the day being driven comes
       // up over the dimmed days still ahead where they share a road. A
       // picked day stays on top of the faded ones instead.
@@ -4756,19 +5202,7 @@ kbd {
       const atKm = source === 'slider' ? Number(slider.value) : p[4];
       slider.style.setProperty('--pct', (atKm / totals.km * 100).toFixed(2) + '%');
       readN['readout-ele'].textContent = fmtInt(p[2]);
-      // A dash where no station was close enough, rather than a guess.
-      const tempN = readN['readout-temp'];
-      if (WX[i]) {
-        tempN.textContent = minus(String(Math.round(WX[i][0])));
-        if (readTemp.classList.contains('none')) {
-          readTemp.classList.remove('none');
-          tempN.removeAttribute('aria-hidden');
-        }
-      } else if (!readTemp.classList.contains('none')) {
-        tempN.textContent = '\u2013';
-        readTemp.classList.add('none');
-        tempN.setAttribute('aria-hidden', 'true');
-      }
+      readSecond(i);
       readN['readout-km'].textContent = fmt1(p[4]);
       if (source !== 'slider') slider.value = String(Math.round(p[4]));
       moveCursor(i, JUMPS[source] === true, frac);
@@ -4786,7 +5220,10 @@ kbd {
     // A jump that flies rings the halo when the fly lands instead.
     let flying = false;
     if (JUMPS[source]) flying = bringIntoView(at);
-    else if (source !== 'init' && source !== 'select' && source !== 'link') map.panInside(at, panPadding());
+    // Following, the playback's own frame glides the map instead.
+    else if (source !== 'init' && source !== 'select' && source !== 'link' && !(source === 'play' && following)) {
+      map.panInside(at, panPadding());
+    }
     if (flying) restHaloLater();
     else if (source !== 'init' && source !== 'play') haloSoon();
     scheduleHash();
@@ -4845,6 +5282,8 @@ kbd {
     playF = f;
     // With less motion the marker steps from fix to fix instead of gliding.
     setIndex(i, 'play', reduceMotion ? 0 : f);
+    drawTrail();
+    followFrame(dt, t);
     if (i >= end) {
       stopPlay();
       if (i >= LAST && selectedDay === null) tripEnd();
@@ -4871,7 +5310,9 @@ kbd {
     }
     styleDays();
     if (on) trackEl.classList.remove('pulse'); else restHalo();
-    if (!on) scheduleHash();
+    showTrail(on);
+    followPrev = null;
+    if (!on) { followSettle(); scheduleHash(); }
   }
   // Pause keeps the fraction between fixes, so play does not jump back to
   // the last fix passed.
@@ -4924,19 +5365,85 @@ kbd {
   const PAD = { left: 36, top: 8, bottom: 18 };
   // The slider thumb's width; its centre travels half of it in from each end.
   const THUMB_PX = 22;
-  const Y_STEPS = [100, 200, 250, 500, 1000];
   // GPS noise at lake level puts the floor a few metres below sea level.
   const SEA_NOISE_M = 20;
   // Labels like "12,000 km" need about 70px each, so a narrow dock on a
   // small phone takes every other tick.
   function xStepKm(plotW) { return plotW < 380 ? 4000 : 2000; }
 
-  let eleMin = Infinity;
-  let eleMax = -Infinity;
-  points.forEach(function (p) {
-    if (p[2] < eleMin) eleMin = p[2];
-    if (p[2] > eleMax) eleMax = p[2];
+  // What the chart can show along the trip. Each reading has round steps
+  // for the whole trip and for a day, the least range a day is drawn
+  // over so a flat day stays flat, and whether its axis stops at zero.
+  // Speed belongs to the step that leaves a fix, so it is drawn flat
+  // along that stretch of road, and a stop, driven in no distance, takes
+  // no width. Weather is the nearest station's, and a fix with none is a
+  // break in the line rather than a zero.
+  const METRICS = {
+    ele: {
+      name: 'Elevation', unit: ' m', word: 'highest',
+      val: function (i) { return points[i][2]; },
+      steps: [100, 200, 250, 500, 1000], daySteps: [50, 100, 200, 250, 500, 1000], minSpan: 400, zero: true
+    },
+    speed: {
+      name: 'Speed', unit: ' km/h', word: 'top speed', step: true,
+      val: function (i) { return points[i][6] || 0; },
+      steps: [10, 20, 30, 40, 50, 60], daySteps: [10, 20, 25, 30, 40, 50], minSpan: 40, zero: true
+    },
+    temp: {
+      name: 'Temperature', unit: DEG, word: 'warmest', nullable: true,
+      val: function (i) { return WX[i] ? WX[i][0] : null; },
+      steps: [1, 2, 5, 10], daySteps: [1, 2, 5, 10], minSpan: 8, zero: false
+    },
+    wind: {
+      name: 'Wind', unit: ' km/h', word: 'windiest', nullable: true,
+      val: function (i) { return WX[i] && typeof WX[i][1] === 'number' ? WX[i][1] : null; },
+      steps: [5, 10, 15, 20, 25, 50], daySteps: [5, 10, 15, 20, 25], minSpan: 20, zero: true
+    }
+  };
+  // A step of the speed line with no length is a stop; it is not drawn,
+  // and its zero is not the trip's slowest moment.
+  function drawnStep(m, i) { return !m.step || (i < LAST && points[i + 1][4] > points[i][4]); }
+  Object.keys(METRICS).forEach(function (key) {
+    const m = METRICS[key];
+    m.key = key;
+    let lo = Infinity;
+    let hi = -Infinity;
+    let ext = -1;
+    for (let i = 0; i <= LAST; i++) {
+      if (!drawnStep(m, i)) continue;
+      const v = m.val(i);
+      if (v === null) continue;
+      if (v < lo) lo = v;
+      if (v > hi) { hi = v; ext = i; }
+    }
+    m.ok = hi >= lo;
+    m.lo = lo;
+    m.hi = hi;
+    // The high point is the one build.py named, so the chart, the card
+    // and the playback label agree on it.
+    m.ext = key === 'ele' ? totals.high_idx : ext;
+    m.extV = key === 'ele' ? totals.high_m : hi;
   });
+  // Where along the trip the extreme sits: a speed in the middle of the
+  // stretch it was driven over.
+  function extremeKm(m) {
+    const i = m.ext;
+    return m.step && i < LAST ? (points[i][4] + points[i + 1][4]) / 2 : points[i][4];
+  }
+  function valAt(m, i, frac) {
+    const v = m.val(i);
+    if (v === null || m.step || !(frac > 0) || i >= LAST) return v;
+    const n = m.val(i + 1);
+    return n === null ? v : v + (n - v) * frac;
+  }
+  // The choice is kept for the next visit, as the colour mode is.
+  const METRIC_KEY = 'roadtrip-chart';
+  let metric = METRICS.ele;
+  try {
+    const kept = window.localStorage.getItem(METRIC_KEY);
+    if (METRICS[kept] && METRICS[kept].ok) metric = METRICS[kept];
+  } catch (err) { /* private mode or blocked storage */ }
+
   // In em, so the reserved width follows the readout's size between the
   // phone and desktop layouts. Only the content is held (the two readings
   // are content-box): the divider's padding changes between layouts, and
@@ -4945,6 +5452,7 @@ kbd {
   // to a wider layout finds the width already held.
   function holdWidth(node, texts) {
     node.style.display = 'inline-block';
+    node.style.minWidth = '';
     const cs = getComputedStyle(node);
     const px = parseFloat(cs.fontSize) || 12;
     const extra = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
@@ -4956,29 +5464,60 @@ kbd {
     node.style.minWidth = (w / px).toFixed(3) + 'em';
     node.style.display = '';
   }
-  holdWidth(readEle, [fmtInt(eleMax), fmtInt(eleMin)]);
-  let tMin = Infinity;
-  let tMax = -Infinity;
-  WX.forEach(function (w) { if (w) { tMin = Math.min(tMin, Math.round(w[0])); tMax = Math.max(tMax, Math.round(w[0])); } });
-  if (tMax >= tMin) holdWidth(readTemp, [minus(String(tMin)), minus(String(tMax))]);
+  holdWidth(readEle, [fmtInt(METRICS.ele.hi), fmtInt(METRICS.ele.lo)]);
+  // The readout always names the height; its second reading is the
+  // chart's when the chart shows something else, and the temperature
+  // when it shows the height.
+  function secondMetric() { return metric === METRICS.ele ? METRICS.temp : metric; }
+  const readUnit2 = readTemp.querySelector('.unit');
+  function holdSecond() {
+    const m = secondMetric();
+    readUnit2.textContent = m.unit;
+    readTemp.classList.toggle('wind', m === METRICS.wind);
+    readoutEl.classList.toggle('alt', metric !== METRICS.ele);
+    if (m.ok) holdWidth(readTemp, [fmtInt(m.lo), fmtInt(m.hi)]);
+  }
+  holdSecond();
+  // A dash where no station was close enough, rather than a guess.
+  function readSecond(i) {
+    const v = secondMetric().val(i);
+    const n = readN['readout-temp'];
+    if (v !== null) {
+      n.textContent = fmtInt(v);
+      if (readTemp.classList.contains('none')) {
+        readTemp.classList.remove('none');
+        n.removeAttribute('aria-hidden');
+      }
+    } else if (!readTemp.classList.contains('none') || n.textContent !== '–') {
+      n.textContent = '–';
+      readTemp.classList.add('none');
+      n.setAttribute('aria-hidden', 'true');
+    }
+  }
   // The domain rounds out to the first step that gives at least 3 ticks
   // and no more than the plot has height for: 10px labels need about 18px
   // each, so a short phone chart gets 0, 1,000 and 2,000 m where the
   // desktop gets every 500. A floor within the noise band below sea level
   // snaps to 0 instead of to a tick a whole step further down.
-  function yDomain(plotH) {
+  function niceRange(m, lo, hi, steps, plotH) {
     const most = Math.max(2, Math.floor(plotH / 18));
+    const toZero = m === METRICS.ele ? lo > -SEA_NOISE_M : m.zero;
     let fit = null;
-    for (let s = 0; s < Y_STEPS.length; s++) {
-      const step = Y_STEPS[s];
-      let lo = Math.floor(eleMin / step) * step;
-      if (lo < 0 && eleMin > -SEA_NOISE_M) lo = 0;
-      const hi = Math.ceil(eleMax / step) * step;
-      fit = { lo: lo, hi: hi, step: step };
-      const spans = (hi - lo) / step;
+    for (let s = 0; s < steps.length; s++) {
+      const step = steps[s];
+      let l = Math.floor(lo / step) * step;
+      if (l < 0 && toZero) l = 0;
+      let h = Math.ceil(hi / step) * step;
+      if (h <= l) h = l + step;
+      fit = { lo: l, hi: h, step: step };
+      const spans = (h - l) / step;
       if (spans >= 2 && spans <= most) break;
     }
     return fit;
+  }
+  function yDomain(plotH, m) {
+    m = m || metric;
+    return niceRange(m, m.lo, m.hi, m.steps, plotH);
   }
 
   let scale = null;
@@ -5030,13 +5569,13 @@ kbd {
     if (cursorZoom) { cursorZoom.cancel(); cursorZoom = null; }
     if (cursorDotZoom) { cursorDotZoom.cancel(); cursorDotZoom = null; }
     let km = points[i][4];
-    let ele = points[i][2];
-    if (frac > 0 && i < LAST) {
-      km += (points[i + 1][4] - km) * frac;
-      ele += (points[i + 1][2] - ele) * frac;
-    }
+    if (frac > 0 && i < LAST) km += (points[i + 1][4] - km) * frac;
+    // With no reading here the dot goes and the line stays, so the
+    // place along the trip still shows.
+    const v = valAt(metric, i, frac);
     const cx = Number(scale.x(km).toFixed(1));
-    const cy = Number(yAt(ele, yDom).toFixed(1));
+    const cy = v === null ? (cursorY === null ? scale.bottom : cursorY) : Number(yAt(v, yDom).toFixed(1));
+    cursorDot.style.opacity = v === null ? '0' : '';
     const out = cx < scale.left - 0.5 || cx > scale.W + 0.5;
     if (out !== cursorGroup.classList.contains('out')) {
       cursorGroup.classList.toggle('out', out);
@@ -5140,15 +5679,20 @@ kbd {
     if (!scale || !hoverGroup) return;
     const p = points[i];
     const x = Number(scale.x(p[4]).toFixed(1));
-    const wx = TRIP.wx && TRIP.wx[i];
     const color = TRIP.days[p[5]].color;
+    const v = metric.val(i);
     hoverDot.setAttribute('cx', x);
-    hoverDot.setAttribute('cy', yAt(p[2], yDom).toFixed(1));
+    hoverDot.setAttribute('cy', v === null ? scale.bottom : yAt(v, yDom).toFixed(1));
     hoverDot.setAttribute('stroke', color);
-    // Separate spans because SVG text collapses runs of spaces.
+    hoverDot.style.opacity = v === null ? '0' : '';
+    // The reading the chart shows, then, under the height as before, the
+    // temperature, and the province. Wind says so, since speed shares
+    // its unit. Separate spans because SVG text collapses runs of spaces.
+    const reading = v === null ? 'no reading' : fmtInt(v) + metric.unit + (metric === METRICS.wind ? ' wind' : '');
+    const t = metric === METRICS.ele ? METRICS.temp.val(i) : null;
     while (hoverText.firstChild) hoverText.removeChild(hoverText.firstChild);
-    [TRIP.days[p[5]].label + ', ' + fmtTime.format(new Date(p[3] * 1000)), fmtInt(p[2]) + ' m']
-      .concat(wx ? [minus(String(Math.round(wx[0]))) + ' \u00b0C'] : [])
+    [TRIP.days[p[5]].label + ', ' + fmtTime.format(new Date(p[3] * 1000)), reading]
+      .concat(t !== null ? [fmtInt(t) + DEG] : [])
       .concat([visits.length ? visits[visitAt(i)].code : '']).filter(Boolean).forEach(function (part, k) {
         const span = svgEl('tspan', k ? { dx: 8, class: 'v' } : {});
         span.textContent = part;
@@ -5200,34 +5744,30 @@ kbd {
   // hides the climbs that make the day. Zoomed, the axis fits the day:
   // at least 400 m tall so a flat day stays flat, never below sea level,
   // on round steps with as many labels as the plot has room for.
-  const Y_STEPS_DAY = [50, 100, 200, 250, 500, 1000];
+  // The same holds for every reading, with its own least range.
   function yDomainFor(dom) {
     if (isFull(dom)) return yBase;
+    const m = metric;
     const a = nearestIndex(dom.a);
     const b = nearestIndex(dom.a + dom.w);
     let lo = Infinity;
     let hi = -Infinity;
     for (let i = a; i <= b; i++) {
-      lo = Math.min(lo, points[i][2]);
-      hi = Math.max(hi, points[i][2]);
+      if (!drawnStep(m, i)) continue;
+      const v = m.val(i);
+      if (v === null) continue;
+      lo = Math.min(lo, v);
+      hi = Math.max(hi, v);
     }
-    if (hi - lo < 400) {
+    // A day with no reading at all keeps the trip's axis.
+    if (!(hi >= lo)) return yBase;
+    if (hi - lo < m.minSpan) {
       const mid = (hi + lo) / 2;
-      lo = mid - 200;
-      hi = mid + 200;
+      lo = mid - m.minSpan / 2;
+      hi = mid + m.minSpan / 2;
     }
-    if (lo < 0) { hi -= lo; lo = 0; }
-    const most = Math.max(2, Math.floor(scale.plotH / 18));
-    let fit = null;
-    for (let k = 0; k < Y_STEPS_DAY.length; k++) {
-      const step = Y_STEPS_DAY[k];
-      const l = Math.max(0, Math.floor(lo / step) * step);
-      const h = Math.ceil(hi / step) * step;
-      fit = { lo: l, hi: h, step: step };
-      const spans = (h - l) / step;
-      if (spans >= 2 && spans <= most) break;
-    }
-    return fit;
+    if (m.zero && lo < 0) { hi -= lo; lo = 0; }
+    return niceRange(m, lo, hi, m.daySteps, scale.plotH);
   }
 
   // The elevation grid, built like the km ticks: each line and label a
@@ -5240,7 +5780,7 @@ kbd {
       t.style.transform = 'translate(0px, ' + (Math.round(yAt(v, yd)) + 0.5) + 'px)';
       t.appendChild(svgEl('line', { x1: scale.left, x2: scale.W, y1: 0, y2: 0 }));
       const label = svgEl('text', { x: scale.left - 6, y: 0, dy: '0.35em', 'text-anchor': 'end' });
-      label.textContent = fmtInt(v) + (v + yd.step > yd.hi + 1e-6 ? ' m' : '');
+      label.textContent = fmtInt(v) + (v + yd.step > yd.hi + 1e-6 ? metric.unit : '');
       t.appendChild(label);
       g.appendChild(t);
     }
@@ -5269,9 +5809,8 @@ kbd {
       out.bounds.push(xa);
       out.codes.push({ x: va + 4, show: vb - va >= m.w + 8, vb: vb });
     });
-    const hp = points[totals.high_idx];
-    const px = xAt(hp[4], dom);
-    const py = yAt(hp[2], yd);
+    const px = xAt(extremeKm(metric), dom);
+    const py = yAt(metric.extV, yd);
     const peak = { x: px, y: py, show: px >= left && px <= right && py >= PAD.top - 1, side: 'start' };
     out.peak = peak;
     if (!peak.show) return out;
@@ -5298,8 +5837,11 @@ kbd {
       const kb = dom.a + (Math.min(r, right) - left) * dom.w / scale.plotW;
       if (kb <= ka) return true;
       let top = -Infinity;
-      for (let i = nearestIndex(ka), ib = nearestIndex(kb); i <= ib; i++) top = Math.max(top, points[i][2]);
-      return yAt(top, yd) >= py + 7;
+      for (let i = nearestIndex(ka), ib = nearestIndex(kb); i <= ib; i++) {
+        const v = drawnStep(metric, i) ? metric.val(i) : null;
+        if (v !== null) top = Math.max(top, v);
+      }
+      return top === -Infinity || yAt(top, yd) >= py + 7;
     }
     function losesCode(side) { return place(side).some(function (c) { return c.pushed && !c.show; }); }
     // Above the dot nothing of the line can be in the way, as no fix is
@@ -5326,7 +5868,11 @@ kbd {
   // Above its dot the label's baseline sits 8px up, or as far as the top
   // of the chart allows on a short one; 6px up still clears the dot's ring.
   function topY(py) { return -Math.min(8, Math.round((py - 8) * 10) / 10); }
+  // The layout last put on screen, so a change of reading can move the
+  // codes from where they are.
+  let lastLay = null;
   function applyMarks(lay) {
+    lastLay = lay;
     lay.bounds.forEach(function (x, k) {
       if (provMarks[k].line) provMarks[k].line.style.transform = 'translate(' + (Math.round(x) + 0.5) + 'px, 0px)';
     });
@@ -5474,6 +6020,9 @@ kbd {
     return function () { return 0; };
   }
   function zoomChart(to) {
+    // A change of reading still under way lands first, so the zoom
+    // starts from one chart rather than two.
+    stopMorph();
     const from = scale && zoomG ? shownDom() : xDom;
     const fromY = scale && zoomG ? shownYDom() : yDom;
     xDom = to;
@@ -5566,13 +6115,15 @@ kbd {
       return { transform: 'translate(' + l.peak.x.toFixed(1) + 'px, ' + l.peak.y.toFixed(1) + 'px)', opacity: peakShow(n / N) };
     }), timing));
     const ckm = points[current][4];
-    const cele = points[current][2];
+    const cv = valAt(metric, current, 0);
     cursorZoom = cursorGroup.animate(doms.map(function (d) {
       return { transform: 'translate(' + xAt(ckm, d).toFixed(1) + 'px, 0px)' };
     }), timing);
-    cursorDotZoom = cursorDot.animate(ydoms.map(function (yd) {
-      return { transform: 'translate(0px, ' + yAt(cele, yd).toFixed(1) + 'px)' };
-    }), timing);
+    if (cv !== null) {
+      cursorDotZoom = cursorDot.animate(ydoms.map(function (yd) {
+        return { transform: 'translate(0px, ' + yAt(cv, yd).toFixed(1) + 'px)' };
+      }), timing);
+    }
     main.finished.then(function () {
       if (zoomAnims[0] !== main) return;
       zoomAnims = [];
@@ -5582,6 +6133,111 @@ kbd {
       leavingTicks = [];
       motion('zoom', false);
     }, function () {});
+  }
+
+  // The reading's lines and washes, one group per day in a layer of its
+  // own, so a change of reading can fade one layer out as the next comes
+  // in. One subpath per stretch with a reading, so the chart breaks at
+  // the same gaps the map does and where no station reported, and one
+  // area and one line path per day. Along x the paths are in km with two
+  // decimals, so a short day zoomed to the full width stays smooth; the
+  // strokes keep their 2px through the stretch. The paths are drawn on
+  // the whole trip's range for the reading; a zoom to a day scales them
+  // to its own range by transform.
+  function valueRuns(seg) {
+    if (!metric.nullable) return [{ a: seg[0], b: seg[1] }];
+    const out = [];
+    let a = -1;
+    for (let i = seg[0]; i <= seg[1]; i++) {
+      if (metric.val(i) === null) {
+        if (a >= 0 && i - 1 > a) out.push({ a: a, b: i - 1 });
+        a = -1;
+      } else if (a < 0) {
+        a = i;
+      }
+    }
+    if (a >= 0 && seg[1] > a) out.push({ a: a, b: seg[1] });
+    return out;
+  }
+  function buildLayer(parent, before) {
+    const m = metric;
+    const plotH = scale.plotH;
+    const y = function (v) { return (PAD.top + plotH * (yBase.hi - v) / (yBase.hi - yBase.lo)).toFixed(1); };
+    // The area under the line is a flat wash of the day's colour so the
+    // profile has some body. A plain fill, not a gradient mask: a mask is
+    // composited again on every cursor move, and the cursor moves at 60 Hz.
+    const floorY = (PAD.top + plotH).toFixed(1);
+    function trace(a, b) {
+      let d = '';
+      if (m.step) {
+        for (let i = a; i < b; i++) {
+          if (!drawnStep(m, i)) continue;
+          const h = y(m.val(i));
+          d += (d ? 'L' : 'M') + points[i][4].toFixed(2) + ' ' + h + 'L' + points[i + 1][4].toFixed(2) + ' ' + h;
+        }
+        return d;
+      }
+      for (let i = a; i <= b; i++) {
+        d += (i === a ? 'M' : 'L') + points[i][4].toFixed(2) + ' ' + y(m.val(i));
+      }
+      return d;
+    }
+    const layer = svgEl('g', { class: 'mlayer' });
+    zoomG = svgEl('g', { class: 'zoom' });
+    layer.appendChild(zoomG);
+    // In a reading's mode the line takes the same runs as on the map, one
+    // path per bin per day, so the day groups still fade as one. The area
+    // stays one neutral wash per day: washes split at every change of bin
+    // left a hairline seam at each join.
+    const bins = colourMode === 'day' ? null : modeInfo[colourMode].bins;
+    dayGroups = TRIP.days.map(function (day) {
+      const g = svgEl('g', { class: 'day' });
+      const byBin = {};
+      const order = [];
+      let area = '';
+      day.segments.forEach(function (seg) {
+        if (seg[1] <= seg[0]) return;
+        valueRuns(seg).forEach(function (r) {
+          const line = trace(r.a, r.b);
+          if (!line) return;
+          // Zero length steps share the x of their neighbours, so the
+          // run's two ends are where its line starts and stops.
+          area += line + 'L' + points[r.b][4].toFixed(2) + ' ' + floorY + 'L' + points[r.a][4].toFixed(2) + ' ' + floorY + 'Z';
+          (bins ? runsOf([r.a, r.b], bins) : [{ a: r.a, b: r.b, bin: '' }]).forEach(function (run) {
+            const d = trace(run.a, run.b);
+            if (!d) return;
+            if (!byBin[run.bin]) { byBin[run.bin] = ''; order.push(run.bin); }
+            byBin[run.bin] += d;
+          });
+        });
+      });
+      if (area) {
+        g.appendChild(svgEl('path', { class: bins ? 'area an' : 'area', d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
+      }
+      order.forEach(function (bin) {
+        g.appendChild(svgEl('path', {
+          class: 'ln ' + bin, d: byBin[bin], fill: 'none', stroke: day.color, 'stroke-width': 2,
+          'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke'
+        }));
+      });
+      zoomG.appendChild(g);
+      return g;
+    });
+    zoomG.style.transform = zoomTransform(xDom, yDom);
+    parent.insertBefore(layer, before);
+    return layer;
+  }
+  // The reading's extreme, the one worth naming on the profile: the high
+  // point, the top speed, the warmest and the windiest moment.
+  function buildPeak(before) {
+    peakG = svgEl('g', { class: 'peak' });
+    peakG.appendChild(svgEl('circle', { cx: 0, cy: 0, r: 2.5 }));
+    peakText = svgEl('text', { x: 6, y: 0, dy: '0.35em' });
+    peakText.textContent = fmtInt(metric.extV) + metric.unit;
+    peakG.appendChild(peakText);
+    chart.insertBefore(peakG, before);
+    peakW = peakText.getComputedTextLength();
+    return peakG;
   }
 
   function render() {
@@ -5598,23 +6254,26 @@ kbd {
     hideHover();
     motion('cursor', false);
     stopZoom();
+    stopMorph();
     while (chart.firstChild) chart.removeChild(chart.firstChild);
     chart.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
     const plotH = H - PAD.top - PAD.bottom;
     yBase = yDomain(plotH);
-    const yTicks = [];
-    for (let v = yBase.lo; v <= yBase.hi; v += yBase.step) {
-      yTicks.push({ v: v, text: fmtInt(v) + (v === yBase.hi ? ' m' : '') });
-    }
     // The left margin grows past 36px only when the labels need it, which
-    // the unit on the top label can force with a wide system font.
+    // the unit on the top label can force with a wide system font. Every
+    // reading's labels count, so a change of reading never moves the plot.
     let left = PAD.left;
     const probe = svgEl('text', { x: 0, y: 0 });
     chart.appendChild(probe);
-    yTicks.forEach(function (t) {
-      probe.textContent = t.text;
-      left = Math.max(left, Math.ceil(probe.getComputedTextLength()) + 8);
+    Object.keys(METRICS).forEach(function (key) {
+      const m = METRICS[key];
+      if (!m.ok) return;
+      const yd = yDomain(plotH, m);
+      for (let v = yd.lo; v <= yd.hi + 1e-6; v += yd.step) {
+        probe.textContent = fmtInt(v) + (v + yd.step > yd.hi + 1e-6 ? m.unit : '');
+        left = Math.max(left, Math.ceil(probe.getComputedTextLength()) + 8);
+      }
     });
     chart.removeChild(probe);
 
@@ -5628,20 +6287,12 @@ kbd {
     const plotRight = sr.width > THUMB_PX ? Math.round(sr.right - cr.left - thumbHalf) : W;
     const plotW = plotRight - left;
     const x = function (km) { return left + plotW * (km - xDom.a) / xDom.w; };
-    // The paths are drawn on the whole trip's elevation range; a zoom to
-    // a day scales them to its own range by transform.
-    const y = function (m) { return PAD.top + plotH * (yBase.hi - m) / (yBase.hi - yBase.lo); };
     const bottom = Math.round(PAD.top + plotH) + 0.5;
     scale = { x: x, left: left, plotW: plotW, plotH: plotH, W: W, H: H, bottom: bottom };
     yDom = yDomainFor(xDom);
 
     yG = drawYGrid(yDom, chart, null);
     tickG = drawTicks(xDom, chart, null);
-
-    // The area under the line is a flat wash of the day's colour so the
-    // profile has some body. A plain fill, not a gradient mask: a mask is
-    // composited again on every cursor move, and the cursor moves at 60 Hz.
-    const floorY = (PAD.top + plotH).toFixed(1);
 
     // Zoomed to a day the lines run on past the plot, so they are clipped
     // where the grid starts; the cursor's clip leaves room for its dot at
@@ -5657,51 +6308,8 @@ kbd {
     defs.appendChild(clipCursor);
     chart.appendChild(defs);
 
-    // One subpath per segment, so the chart breaks at the same gaps the
-    // map does, and one area and one line path per day. Along x the paths
-    // are in km with two decimals, so a short day zoomed to the full width
-    // stays smooth; the strokes keep their 2px through the stretch.
     const plotG = svgEl('g', { 'clip-path': 'url(#chart-clip)' });
     const days = svgEl('g', {});
-    zoomG = svgEl('g', { class: 'zoom' });
-    // In a reading's mode the line takes the same runs as on the map, one
-    // path per bin per day, so the day groups still fade as one. The area
-    // stays one neutral wash per day: washes split at every change of bin
-    // left a hairline seam at each join.
-    const bins = colourMode === 'day' ? null : modeInfo[colourMode].bins;
-    dayGroups = TRIP.days.map(function (day) {
-      const g = svgEl('g', { class: 'day' });
-      const byBin = {};
-      const order = [];
-      let area = '';
-      function trace(a, b) {
-        let d = '';
-        for (let i = a; i <= b; i++) {
-          d += (i === a ? 'M' : 'L') + points[i][4].toFixed(2) + ' ' + y(points[i][2]).toFixed(1);
-        }
-        return d;
-      }
-      day.segments.forEach(function (seg) {
-        if (seg[1] <= seg[0]) return;
-        area += trace(seg[0], seg[1]) + 'L' + points[seg[1]][4].toFixed(2) + ' ' + floorY + 'L' + points[seg[0]][4].toFixed(2) + ' ' + floorY + 'Z';
-        (bins ? runsOf(seg, bins) : [{ a: seg[0], b: seg[1], bin: '' }]).forEach(function (run) {
-          if (!byBin[run.bin]) { byBin[run.bin] = ''; order.push(run.bin); }
-          byBin[run.bin] += trace(run.a, run.b);
-        });
-      });
-      if (area) {
-        g.appendChild(svgEl('path', { class: bins ? 'area an' : 'area', d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
-      }
-      order.forEach(function (bin) {
-        g.appendChild(svgEl('path', {
-          class: 'ln ' + bin, d: byBin[bin], fill: 'none', stroke: day.color, 'stroke-width': 2,
-          'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke'
-        }));
-      });
-      zoomG.appendChild(g);
-      return g;
-    });
-    zoomG.style.transform = zoomTransform(xDom, yDom);
     plotG.appendChild(days);
 
     // Where each province begins, a hairline from the top of the plot to
@@ -5710,7 +6318,7 @@ kbd {
     // in their group so they draw in with them on load.
     provG = svgEl('g', { class: 'prov' });
     days.appendChild(provG);
-    days.appendChild(zoomG);
+    buildLayer(days, null);
     chart.appendChild(plotG);
     provMarks = visits.map(function (v, k) {
       const mid = function (j) { return (points[visits[j - 1].to_idx][4] + points[visits[j].from_idx][4]) / 2; };
@@ -5725,14 +6333,7 @@ kbd {
       m.w = m.text.getComputedTextLength();
       return m;
     });
-    // The trip's high point, the one extreme worth naming on the profile.
-    peakG = svgEl('g', { class: 'peak' });
-    peakG.appendChild(svgEl('circle', { cx: 0, cy: 0, r: 2.5 }));
-    peakText = svgEl('text', { x: 6, y: 0, dy: '0.35em' });
-    peakText.textContent = fmtInt(totals.high_m) + ' m';
-    peakG.appendChild(peakText);
-    chart.appendChild(peakG);
-    peakW = peakText.getComputedTextLength();
+    buildPeak(null);
     applyMarks(layoutMarks(xDom, yDom));
 
     const cursorClip = svgEl('g', { 'clip-path': 'url(#cursor-clip)' });
@@ -5813,15 +6414,17 @@ kbd {
     b.setAttribute('aria-pressed', m === colourMode ? 'true' : 'false');
     b.addEventListener('click', function () { setMode(m); });
   });
-  function placeThumb(still) {
-    const b = segBtns.filter(function (n) { return n.getAttribute('data-mode') === colourMode; })[0];
+  // The first placement, and any after a change of size, lands at once;
+  // only a change of choice slides.
+  function placeSegThumb(seg, b, still) {
     if (!b || !b.offsetWidth) return;
-    // The first placement, and any after a change of size, lands at once;
-    // only a change of choice slides.
-    if (still) segEl.classList.add('still');
-    segEl.style.setProperty('--x', b.offsetLeft + 'px');
-    segEl.style.setProperty('--w', b.offsetWidth + 'px');
-    if (still) { void segEl.offsetWidth; segEl.classList.remove('still'); }
+    if (still) seg.classList.add('still');
+    seg.style.setProperty('--x', b.offsetLeft + 'px');
+    seg.style.setProperty('--w', b.offsetWidth + 'px');
+    if (still) { void seg.offsetWidth; seg.classList.remove('still'); }
+  }
+  function placeThumb(still) {
+    placeSegThumb(segEl, segBtns.filter(function (n) { return n.getAttribute('data-mode') === colourMode; })[0], still);
   }
   function fillLegend() {
     let stops;
@@ -5865,6 +6468,175 @@ kbd {
     rebuildLines(false);
     drawnW = 0;
     render();
+  }
+
+  // The chart's reading, picked in the dock. It is apart from Colour by:
+  // one says what the route's colour stands for, the other what the
+  // chart's height does, and the line on the chart keeps the map's
+  // colours whichever it shows.
+  const metricSeg = document.getElementById('metric');
+  const metricBtns = Array.prototype.slice.call(metricSeg.querySelectorAll('button'));
+  const dockTools = document.getElementById('dock-tools');
+  function placeMetricThumb(still) {
+    placeSegThumb(metricSeg, metricBtns.filter(function (n) { return n.getAttribute('data-metric') === metric.key; })[0], still);
+  }
+  metricBtns.forEach(function (b) {
+    const key = b.getAttribute('data-metric');
+    if (!METRICS[key].ok) b.hidden = true;
+    b.setAttribute('aria-pressed', key === metric.key ? 'true' : 'false');
+    b.addEventListener('click', function () { setMetric(key); });
+  });
+  // The profile has no words of its own, so a screen reader hears what
+  // it shows, the provinces it crosses and its extreme.
+  function labelChart() {
+    const names = visits.map(function (v) { return v.name; });
+    const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+    chart.setAttribute('aria-label', metric.name + ' along the trip' + (list ? ', through ' + list : '') +
+      ', ' + metric.word + ' ' + fmtInt(metric.extV) + metric.unit);
+  }
+  labelChart();
+  placeMetricThumb(true);
+  // The picker shares the readout's row where the two fit with room for
+  // the readout to grow (the distance gains digits as the trip goes on),
+  // and has a row of its own above the chart where they do not.
+  function fitDockTools() {
+    const cs = getComputedStyle(dock);
+    const room = dock.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const keysW = keysBtnEl.offsetWidth ? keysBtnEl.offsetWidth + 8 : 0;
+    const wide = readoutEl.offsetWidth + 64 + 16 + metricSeg.offsetWidth + keysW <= room;
+    if (wide !== dock.classList.contains('wide')) dock.classList.toggle('wide', wide);
+  }
+  const keysBtnEl = document.getElementById('keys-btn');
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(function () { placeMetricThumb(true); }).observe(metricSeg);
+    new ResizeObserver(fitDockTools).observe(dock);
+  } else {
+    window.addEventListener('resize', fitDockTools);
+  }
+
+  // A change of reading sinks the old line and its ticks toward the floor
+  // as they fade, and raises the new ones out of it, over the same time,
+  // so the chart reads as one profile turning into the next. The two
+  // readings share nothing to morph between, so it is honest motion
+  // rather than a tween between their values. Transforms and opacity
+  // only, on whole groups, so no path is rebuilt per frame.
+  const MORPH_MS = 420;
+  const SQUASH = 0.35;
+  let morphAnims = [];
+  let morphLeaving = [];
+  function stopMorph() {
+    morphAnims.forEach(function (a) { a.cancel(); });
+    morphAnims = [];
+    morphLeaving.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+    morphLeaving = [];
+    motion('morph', false);
+  }
+  function squashY(y, s) { const f = PAD.top + scale.plotH; return f + (y - f) * s; }
+  function squash(s) {
+    const f = PAD.top + scale.plotH;
+    return 'translate(0px, ' + (f * (1 - s)).toFixed(2) + 'px) scale(1, ' + s + ')';
+  }
+  function setMetric(key) {
+    const m = METRICS[key];
+    if (!m || !m.ok || m === metric) return;
+    // The route is being drawn on load; it finishes first so the chart
+    // never changes under its own reveal.
+    finishReveal();
+    metric = m;
+    try { window.localStorage.setItem(METRIC_KEY, key); } catch (err) { /* not kept, still shown */ }
+    metricBtns.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-metric') === key ? 'true' : 'false'); });
+    placeMetricThumb(false);
+    labelChart();
+    holdSecond();
+    readSecond(current);
+    if (!scale || !zoomG) return;
+    if (!canAnimate) { drawnW = 0; render(); return; }
+    morphChart();
+  }
+  function morphChart() {
+    stopZoom();
+    stopMorph();
+    hideHover();
+    const oldLayer = zoomG.parentNode;
+    const oldY = yG;
+    const oldPeak = peakG;
+    const oldYDom = yDom;
+    const fromLay = lastLay;
+    const oldCy = cursorDot.style.opacity === '0' ? null : cursorY;
+    yBase = yDomain(scale.plotH);
+    yDom = yDomainFor(xDom);
+    buildLayer(oldLayer.parentNode, oldLayer.nextSibling);
+    yG = drawYGrid(yDom, chart, oldY.nextSibling);
+    buildPeak(oldPeak.nextSibling);
+    const lay = layoutMarks(xDom, yDom);
+    applyMarks(lay);
+    fadeChart();
+    moveCursor(current, false, currentFrac);
+    const timing = { duration: MORPH_MS, easing: EASE_UI };
+    motion('morph', true);
+    morphLeaving.push(oldLayer, oldY, oldPeak);
+    const main = oldLayer.animate([
+      { transform: squash(1), opacity: 1 },
+      { transform: squash(SQUASH), opacity: 0 }
+    ], Object.assign({ fill: 'forwards' }, timing));
+    morphAnims.push(main);
+    morphAnims.push(zoomG.parentNode.animate([
+      { transform: squash(SQUASH), opacity: 0 },
+      { transform: squash(1), opacity: 1 }
+    ], timing));
+    function slide(node, y0, y1, o0, o1, fill) {
+      morphAnims.push(node.animate([
+        { transform: 'translate(0px, ' + y0.toFixed(1) + 'px)', opacity: o0 },
+        { transform: 'translate(0px, ' + y1.toFixed(1) + 'px)', opacity: o1 }
+      ], Object.assign({ fill: fill }, timing)));
+    }
+    Array.prototype.forEach.call(oldY.children, function (t) {
+      const y = Math.round(yAt(Number(t.getAttribute('data-v')), oldYDom)) + 0.5;
+      slide(t, y, squashY(y, SQUASH), 1, 0, 'forwards');
+    });
+    Array.prototype.forEach.call(yG.children, function (t) {
+      const y = Math.round(yAt(Number(t.getAttribute('data-v')), yDom)) + 0.5;
+      slide(t, squashY(y, SQUASH), y, 0, 1, 'none');
+    });
+    // The old extreme sinks and fades with its line, the new one rises
+    // with its own; a province code it pushed aside slides back.
+    const op = oldPeak.style.transform.match(/translate\(([-\d.]+)px, ([-\d.]+)px\)/);
+    if (op) {
+      const ox = Number(op[1]);
+      const oy = Number(op[2]);
+      morphAnims.push(oldPeak.animate([
+        { transform: 'translate(' + ox + 'px, ' + oy + 'px)', opacity: Number(oldPeak.style.opacity || 1) },
+        { transform: 'translate(' + ox + 'px, ' + squashY(oy, SQUASH).toFixed(1) + 'px)', opacity: 0 }
+      ], Object.assign({ fill: 'forwards' }, timing)));
+    }
+    morphAnims.push(peakG.animate([
+      { transform: 'translate(' + lay.peak.x.toFixed(1) + 'px, ' + squashY(lay.peak.y, SQUASH).toFixed(1) + 'px)', opacity: 0 },
+      { transform: 'translate(' + lay.peak.x.toFixed(1) + 'px, ' + lay.peak.y.toFixed(1) + 'px)', opacity: lay.peak.show ? 1 : 0 }
+    ], timing));
+    if (fromLay) {
+      provMarks.forEach(function (pm, k) {
+        const a = fromLay.codes[k];
+        const b = lay.codes[k];
+        if (Math.abs(a.x - b.x) < 0.5 && a.show === b.show) return;
+        morphAnims.push(pm.text.animate([
+          { transform: 'translate(' + a.x.toFixed(1) + 'px, 0px)', opacity: a.show ? 1 : 0 },
+          { transform: 'translate(' + b.x.toFixed(1) + 'px, 0px)', opacity: b.show ? 1 : 0 }
+        ], timing));
+      });
+    }
+    if (oldCy !== null && cursorDot.style.opacity !== '0' && Math.abs(oldCy - cursorY) > 0.5) {
+      cursorDotZoom = cursorDot.animate([
+        { transform: 'translate(0px, ' + oldCy + 'px)' },
+        { transform: 'translate(0px, ' + cursorY + 'px)' }
+      ], timing);
+    }
+    main.finished.then(function () {
+      if (morphAnims[0] !== main) return;
+      morphAnims = [];
+      morphLeaving.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+      morphLeaving = [];
+      motion('morph', false);
+    }, function () {});
   }
 
   // Playback speed, cycled from the button beside play. It can change
@@ -5952,6 +6724,304 @@ kbd {
   barButton('Copy link to this view', 'Copy link', [['', [
     'M6.9 9.1l2.2-2.2', 'M8.3 4.4l.9-.9a2.5 2.5 0 0 1 3.5 3.5l-.9.9', 'M7.7 11.6l-.9.9a2.5 2.5 0 0 1-3.5-3.5l.9-.9'
   ]]], copyLink);
+
+  // Follow. While the trip plays the map glides along under the marker
+  // so it stays in the middle of the open part of the map, rather than
+  // being pushed along once it reaches an edge. A drag means the viewer
+  // wants the map back, so it turns follow off.
+  const FOLLOW_TAU_MS = 220;
+  const followBtn = barButton('Follow the marker while playing', 'Follow the marker while playing', [['', [
+    'M8 4.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 1 0 0-7.2z', 'M8 1.5v2.2', 'M8 12.3v2.2', 'M1.5 8h2.2', 'M12.3 8h2.2'
+  ]]], function () { setFollow(!following); });
+  followBtn.classList.add('follow');
+  followBtn.setAttribute('aria-pressed', 'false');
+  // The centre dot only shows while it is on.
+  followBtn.querySelector('svg').appendChild(svgEl('path', { class: 'core', d: 'M8 6.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8z' }));
+  // Next to fit, so the two controls that move the camera sit together.
+  viewBar.insertBefore(followBtn, viewBar.children[1]);
+  let following = false;
+  let followCarry = L.point(0, 0);
+  // Where the marker was last frame, in the map's pixels at that zoom.
+  let followPrev = null;
+  let followEndAt = 0;
+  let followMoved = false;
+  // The middle of the map that can be seen, the same point the zoom
+  // buttons zoom about, so a zoom while following keeps the marker put.
+  function openCentre() {
+    const o = overlayInsets();
+    const size = map.getSize();
+    return L.point((o.left + size.x) / 2, (o.top + size.y - o.bottom - o.attrib) / 2);
+  }
+  function setFollow(on) {
+    following = on;
+    followBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    followCarry = L.point(0, 0);
+    followPrev = null;
+    if (!on) { followSettle(); return; }
+    if (playing) return;
+    // Paused, the map goes to the marker once, so the press shows what
+    // it does; playback then keeps it there.
+    const off = map.latLngToContainerPoint(trackMarker.getLatLng()).subtract(openCentre());
+    if (Math.abs(off.x) + Math.abs(off.y) < 2) return;
+    const target = map.containerPointToLatLng(map.getSize().divideBy(2).add(off));
+    if (reduceMotion) map.setView(target, map.getZoom(), { animate: false });
+    else map.flyTo(target, map.getZoom(), { duration: 0.5 });
+  }
+  // Once a frame from playback. The map moves with the marker by the
+  // distance the marker moved, so it holds its place on screen however
+  // fast it goes at the zoom in use, and whatever offset is left (after
+  // a press, a zoom about the pointer) eases out by a share that depends
+  // on the frame's length, so the glide feels the same at any frame
+  // rate. Whole pixels with the remainder carried, so the tiles stay
+  // sharp. A jump across a gap in the record is eased rather than taken
+  // in one frame. It stands aside while
+  // Leaflet itself is moving the map: a zoom, a fly, a pan or a drag.
+  // The pan is Leaflet's own raw step plus a move event, with moveend
+  // only every 120ms: a moveend redraws every route path, which on each
+  // frame took a desktop frame past its budget, and the clip area around
+  // the view (10% each side) is far more than 120ms of travel.
+  function followFrame(dt, t) {
+    if (!following) return;
+    if (leafletZooming || map._animatingZoom || (map._panAnim && map._panAnim._inProgress) ||
+        (map.dragging && map.dragging.moving && map.dragging.moving())) {
+      followPrev = null;
+      return;
+    }
+    const at = trackMarker.getLatLng();
+    const zoom = map.getZoom();
+    const abs = map.project(at, zoom);
+    let move = followPrev && followPrev.z === zoom ? abs.subtract(followPrev.p) : L.point(0, 0);
+    followPrev = { p: abs, z: zoom };
+    const size = map.getSize();
+    if (Math.abs(move.x) > size.x / 4 || Math.abs(move.y) > size.y / 4) move = L.point(0, 0);
+    const off = map.latLngToContainerPoint(at).subtract(openCentre());
+    const k = reduceMotion ? 1 : 1 - Math.exp(-dt / FOLLOW_TAU_MS);
+    const fx = move.x + (off.x - move.x) * k + followCarry.x;
+    const fy = move.y + (off.y - move.y) * k + followCarry.y;
+    const step = L.point(Math.round(fx), Math.round(fy));
+    followCarry = L.point(fx - step.x, fy - step.y);
+    if (!step.x && !step.y) return;
+    if (typeof map._rawPanBy === 'function') {
+      map._rawPanBy(step);
+      map.fire('move');
+      followMoved = true;
+      if (t - followEndAt > 120) {
+        followEndAt = t;
+        followMoved = false;
+        map.fire('moveend');
+      }
+    } else {
+      map.panBy(step, { animate: false, noMoveStart: true });
+    }
+  }
+  // A fly or a zoom runs from zoomstart to zoomend; Leaflet keeps no flag
+  // that clears when a fly ends.
+  let leafletZooming = false;
+  map.on('zoomstart', function () { leafletZooming = true; });
+  // A fly cut short by a drag or another move sends no zoomend, but
+  // every move ends with a moveend.
+  map.on('zoomend moveend', function () { leafletZooming = false; });
+  function followSettle() {
+    if (!followMoved) return;
+    followMoved = false;
+    map.fire('moveend');
+  }
+  map.on('dragstart', function () {
+    if (!following || !playing) return;
+    setFollow(false);
+    toast('Follow off');
+  });
+
+  // A short comet behind the playing marker: the last 40 km, or the
+  // length of 48px where 40 km would be a speck. Eight faint strokes in
+  // the marker's colour all end at the marker and start one after
+  // another along the tail, each a little wider than the one before, so
+  // where they overlap the comet grows brighter and wider toward its
+  // head with no seam between pieces. Eight short paths in a pane and
+  // renderer of their own are rewritten each frame; the route's paths
+  // are never touched. Less motion: no comet.
+  const TRAIL_KM = 40;
+  const TRAIL_MIN_PX = 48;
+  const TRAIL_N = 8;
+  const trailPane = map.createPane('trail');
+  trailPane.style.zIndex = '446';
+  trailPane.classList.add('off');
+  const trailRenderer = L.svg({ pane: 'trail' });
+  const trailParts = [];
+  for (let k = 0; k < TRAIL_N; k++) {
+    trailParts.push(L.polyline([], {
+      renderer: trailRenderer, interactive: false, className: 'trail',
+      weight: 3 + 11 * k / (TRAIL_N - 1), opacity: 0.2, lineCap: 'round', lineJoin: 'round'
+    }).addTo(map));
+  }
+  let trailOn = false;
+  let trailColor = null;
+  let trailTimer = 0;
+  function showTrail(on) {
+    if (reduceMotion) return;
+    if (trailTimer) { clearTimeout(trailTimer); trailTimer = 0; }
+    trailOn = on;
+    trailPane.classList.toggle('off', !on);
+    if (on) { drawTrail(); return; }
+    // Faded out first, then emptied, so a long pause holds no paths.
+    trailTimer = setTimeout(function () {
+      trailTimer = 0;
+      if (!trailOn) trailParts.forEach(function (part) { part.setLatLngs([]); });
+    }, 450);
+  }
+  function drawTrail() {
+    if (!trailOn) return;
+    const i = current;
+    const head = trackMarker.getLatLng();
+    const headKm = points[i][4] + (i < LAST ? (points[i + 1][4] - points[i][4]) * currentFrac : 0);
+    // Kilometres a pixel covers here, on the cumulative distance's scale.
+    const kmPx = 40075.017 * Math.cos(head.lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8) * totals.scale;
+    const len = Math.max(TRAIL_KM, TRAIL_MIN_PX * kmPx);
+    // Back along the route from the marker, stopping at a gap in the
+    // record, where the line on the map breaks too.
+    const pts = [[head.lat, head.lng, headKm]];
+    for (let j = i; j >= 0; j--) {
+      if (j < LAST && j < i && points[j + 1][3] - points[j][3] > GAP_S) break;
+      const km = points[j][4];
+      if (j === i && currentFrac === 0) continue;
+      if (headKm - km >= len) {
+        const prev = pts[pts.length - 1];
+        const t = (prev[2] - (headKm - len)) / Math.max(1e-9, prev[2] - km);
+        pts.push([prev[0] + (latlngs[j][0] - prev[0]) * t, prev[1] + (latlngs[j][1] - prev[1]) * t, headKm - len]);
+        break;
+      }
+      pts.push([latlngs[j][0], latlngs[j][1], km]);
+    }
+    pts.reverse();
+    const tail = pts[0][2];
+    const total = headKm - tail;
+    const color = TRIP.days[points[i][5]].color;
+    if (color !== trailColor) {
+      trailColor = color;
+      trailParts.forEach(function (part) { part.setStyle({ color: color }); });
+    }
+    // Each stroke runs from its start along the tail to the head, cut
+    // where it falls between two fixes.
+    let n = 0;
+    trailParts.forEach(function (part, k) {
+      if (total <= 0) { part.setLatLngs([]); return; }
+      const a = tail + total * k / TRAIL_N;
+      const b = headKm;
+      const out = [];
+      while (n < pts.length - 1 && pts[n + 1][2] <= a) n++;
+      for (let q = n; q < pts.length - 1; q++) {
+        const p0 = pts[q];
+        const p1 = pts[q + 1];
+        const span = p1[2] - p0[2];
+        const at = function (km) {
+          const t = span > 0 ? (km - p0[2]) / span : 0;
+          return [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t];
+        };
+        if (!out.length) out.push(at(Math.max(a, p0[2])));
+        if (p1[2] >= b) { out.push(at(b)); break; }
+        out.push([p1[0], p1[1]]);
+      }
+      part.setLatLngs(out);
+    });
+  }
+
+  // Theme: the system's, or light or dark picked here and kept. Every
+  // colour on the page, the route's ramps, the tiles' filter, the chart
+  // and the legend included, comes from the tokens in the CSS, so the
+  // attribute on the root is the whole change; nothing is read back.
+  const THEME_KEY = 'roadtrip-theme';
+  const THEME_BAR = { light: '#e6e5e2', dark: '#141518' };
+  const rootEl = document.documentElement;
+  const darkQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const themeMetas = Array.prototype.slice.call(document.querySelectorAll('meta[name="theme-color"]'));
+  let themePick = rootEl.getAttribute('data-theme');
+  if (themePick !== 'light' && themePick !== 'dark') themePick = 'auto';
+  const THEME_SAID = { auto: 'Theme follows the system', light: 'Light theme', dark: 'Dark theme' };
+  const themeBtn = barButton('', '', [
+    ['icon-auto', ['M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11z', 'M8 2.5a5.5 5.5 0 0 1 0 11z']],
+    ['icon-light', WX_SUN],
+    ['icon-dark', ['M13.2 9.7A5.6 5.6 0 0 1 6.3 2.8a5.6 5.6 0 1 0 6.9 6.9z']]
+  ], function () { setTheme(nextTheme()); });
+  themeBtn.classList.add('theme');
+  themeBtn.querySelector('.icon-auto path:last-child').setAttribute('class', 'fill');
+  function themeShown(pick) {
+    if (pick !== 'auto') return pick;
+    return darkQuery && darkQuery.matches ? 'dark' : 'light';
+  }
+  // Each press makes a visible change while it can: from the system's to
+  // its opposite, then to the system's own colours, then back to
+  // following it, which looks the same and says so in a toast.
+  function nextTheme() {
+    const sys = themeShown('auto');
+    if (themePick === 'auto') return sys === 'dark' ? 'light' : 'dark';
+    return themePick === sys ? 'auto' : sys;
+  }
+  function applyTheme(pick) {
+    themePick = pick;
+    if (pick === 'auto') rootEl.removeAttribute('data-theme');
+    else rootEl.setAttribute('data-theme', pick);
+    // The browser's own bar follows the page, not the system, once picked.
+    themeMetas.forEach(function (m) {
+      const own = /dark/.test(m.getAttribute('media') || '') ? THEME_BAR.dark : THEME_BAR.light;
+      m.setAttribute('content', pick === 'auto' ? own : THEME_BAR[pick]);
+    });
+    themeBtn.setAttribute('data-pick', pick);
+    const next = nextTheme();
+    const label = THEME_SAID[pick] + ', press for ' + (next === 'auto' ? 'the system theme' : next);
+    themeBtn.setAttribute('aria-label', label);
+    themeBtn.title = THEME_SAID[pick];
+  }
+  applyTheme(themePick);
+  // The system turning dark or light changes what the next press does.
+  if (darkQuery) {
+    const relabel = function () { applyTheme(themePick); };
+    if (darkQuery.addEventListener) darkQuery.addEventListener('change', relabel);
+    else if (darkQuery.addListener) darkQuery.addListener(relabel);
+  }
+  const THEME_MS = 520;
+  let themeTimer = 0;
+  function setTheme(pick) {
+    const changes = themeShown(pick) !== themeShown(themePick);
+    try {
+      if (pick === 'auto') window.localStorage.removeItem(THEME_KEY);
+      else window.localStorage.setItem(THEME_KEY, pick);
+    } catch (err) { /* kept for this visit only */ }
+    toast(THEME_SAID[pick]);
+    const go = function () {
+      rootEl.classList.add('theme-snap');
+      applyTheme(pick);
+      void getComputedStyle(document.body).color;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { rootEl.classList.remove('theme-snap'); });
+      });
+    };
+    // While the trip plays the page under the circle changes every frame,
+    // and each of those frames would be drawn twice; it changes at once.
+    if (!changes || reduceMotion || playing) { go(); return; }
+    holdMotion('theme', THEME_MS + 80);
+    // A circle of the new theme grows from the button over a still of
+    // the old one, out to the farthest corner of the window.
+    if (typeof document.startViewTransition === 'function') {
+      const r = themeBtn.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2);
+      const y = Math.round(r.top + r.height / 2);
+      const reach = Math.ceil(Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)));
+      let vt = null;
+      try { vt = document.startViewTransition(go); } catch (err) { go(); return; }
+      vt.ready.then(function () {
+        rootEl.animate({
+          clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + reach + 'px at ' + x + 'px ' + y + 'px)']
+        }, { duration: THEME_MS, easing: EASE_UI, pseudoElement: '::view-transition-new(root)' });
+      }, function () {});
+      return;
+    }
+    // Elsewhere the colours ease across instead, for a moment.
+    if (themeTimer) clearTimeout(themeTimer);
+    rootEl.classList.add('theme-fade');
+    void rootEl.offsetWidth;
+    applyTheme(pick);
+    themeTimer = setTimeout(function () { themeTimer = 0; rootEl.classList.remove('theme-fade'); }, 320);
+  }
   panelsMoved();
 
   // With a mouse, a label beside the pointer names the fix a click there
@@ -6470,7 +7540,8 @@ kbd {
     const parts = (phone ? [] : [titleEl]).concat(
       [document.getElementById('colour')],
       Array.prototype.slice.call(totalsEl.children),
-      [document.getElementById('records'), document.getElementById('days-head'), daysTable, document.getElementById('provinces')]
+      [document.getElementById('records'), document.getElementById('calendar'), document.getElementById('days-head'), daysTable,
+        document.getElementById('provinces'), document.getElementById('colophon')]
     );
     parts.forEach(function (node, k) {
       node.animate([
