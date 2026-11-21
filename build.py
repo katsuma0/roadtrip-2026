@@ -622,6 +622,13 @@ def compute(pts, tz, odometer_km=ODOMETER_KM):
     points = [[round(p["lat"], 6), round(p["lon"], 6), int(round(p["ele_s"])),
                int(p["t"].timestamp()), round(c / 1000.0, 2), p["day"]]
               for p, c in zip(pts, cum)]
+    # The speed of the step that leaves each fix, for the map's speed
+    # colouring. Raw chord speed like the moving test, not the scaled
+    # distance, and 0 across a gap, where the device was off and the
+    # straight line between the two fixes says nothing about the driving.
+    for i, p in enumerate(points):
+        s = steps[i] if i < len(steps) else None
+        p.append(0 if s is None or s["gap"] else int(round(s["speed"])))
 
     nights, spans = find_nights(pts)
     totals["nights"] = sum(sp["nights"] for sp in nights)

@@ -49,6 +49,21 @@
      panel; every fill clears that in dark, so there it is not drawn. */
   --prov-edge: rgba(0, 0, 0, 0.28);
 
+  /* The route coloured by a reading rather than by day: six bins of one
+     hue each, light to dark here and dark to light on the dark map, so
+     the larger reading always stands out more from the tiles. Built in
+     OKLCH with even lightness steps and checked with the dataviz skill's
+     ordinal validator against the grey tiles (every adjacent pair at
+     least 0.06 apart in L, the end nearest the tiles above 2:1). Blue for
+     height, teal for speed, orange for temperature, so the three modes
+     never read as one another; none of them is the violet accent. */
+  --ele-0: #6299e7; --ele-1: #4283db; --ele-2: #2a6dc6; --ele-3: #1d59a7; --ele-4: #154687; --ele-5: #0d3467;
+  --spd-0: #26b094; --spd-1: #00997f; --spd-2: #09816b; --spd-3: #006b58; --spd-4: #015545; --spd-5: #004033;
+  --tmp-0: #e07937; --tmp-1: #cc6004; --tmp-2: #ae4f00; --tmp-3: #904100; --tmp-4: #743100; --tmp-5: #582400;
+  /* A fix no station was near enough to read: grey, so it reads as
+     missing rather than as one more temperature. */
+  --no-reading: #9a9aa4;
+
   /* Glass for the data surfaces, close to opaque so small numbers keep
      their contrast over a busy map. The pill only carries the title. */
   --glass: rgba(250, 250, 252, 0.86);
@@ -111,6 +126,10 @@
     --prov-ab: #d55181;
     --prov-bc: #0ca30c;
     --prov-edge: transparent;
+    --ele-0: #3263a6; --ele-1: #3f7acb; --ele-2: #5793e6; --ele-3: #79adf6; --ele-4: #9fc7fe; --ele-5: #cce0fc;
+    --spd-0: #107460; --spd-1: #008f77; --spd-2: #19aa8e; --spd-3: #42c3a6; --spd-4: #78dac0; --spd-5: #adeedb;
+    --tmp-0: #9d4600; --tmp-1: #c05800; --tmp-2: #dd6f23; --tmp-3: #f08e54; --tmp-4: #f9b189; --tmp-5: #fdd4be;
+    --no-reading: #6c6e78;
 
     --glass: rgba(28, 29, 34, 0.86);
     --glass-pill: rgba(28, 29, 34, 0.72);
@@ -436,7 +455,7 @@ html body.sheet-dragging #title { visibility: visible; transition: none; }
 
 /* The one label style on the page: totals, table headers and section
    heads. The numbers carry the weight; the labels only name them. */
-#totals dt, #records dt, #days th, .section-head {
+#totals dt, #records dt, #days th, .section-head, .section-label {
   font-size: 11px;
   font-weight: 600;
   line-height: 1.3;
@@ -1311,9 +1330,9 @@ tr.selected .kmbar { transform: scaleY(1.34); }
   z-index: 2;
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-rows: 26px 80px 48px;
-  grid-template-areas: "read read" "chart chart" "play scrub";
+  grid-template-areas: "read read read" "chart chart chart" "play rate scrub";
   column-gap: 12px;
   padding: 0 var(--gut) 14px;
 }
@@ -1367,8 +1386,11 @@ body.sheet-open #dock::after { opacity: 1; }
 #chart .hover-guide .v { fill: var(--muted); font-weight: 500; }
 #chart .day { transition: opacity 0.2s var(--ease); }
 /* A day row under the mouse lifts its day here as on the map. */
-#chart .day path:first-child { transition: fill-opacity 0.15s var(--ease); }
-#chart .day.hot path:first-child { fill-opacity: 0.32; }
+#chart .day .area { transition: fill-opacity 0.15s var(--ease); }
+#chart .day.hot .area { fill-opacity: 0.32; }
+/* Under a line coloured by a reading the wash is the ink, faint. */
+#chart .area.an { fill: var(--text); fill-opacity: 0.06; }
+#chart .day.hot .area.an { fill-opacity: 0.14; }
 #chart .hover-guide circle { fill: var(--surface); stroke-width: 1.5; }
 /* Province boundaries and codes, and the high point, set like the axis
    labels; a halo in the dock's colour keeps them clear of the lines. */
@@ -1600,7 +1622,7 @@ body.sheet-open #dock::after { opacity: 1; }
   #handle-clear::after { content: ""; position: absolute; top: -7px; right: -4px; bottom: -7px; left: -4px; }
   #dock {
     grid-template-rows: 64px 20px 26px;
-    grid-template-areas: "chart chart" "play read" "play scrub";
+    grid-template-areas: "chart chart chart" "play rate read" "play rate scrub";
     padding-bottom: 4px;
   }
   /* Beside the play button the readout has a phone's width less 80px, so
@@ -1610,7 +1632,7 @@ body.sheet-open #dock::after { opacity: 1; }
   #readout .temp { display: none; }
   /* The strip of map left above the open sheet is too short for both the
      zoom buttons and the attribution; pinch still zooms. */
-  body.sheet-open .leaflet-control-zoom { visibility: hidden; }
+  body.sheet-open .leaflet-control-zoom, body.sheet-open .view-bar { visibility: hidden; }
 }
 
 /* Tablet and up: the stats float as a glass card on the left with the
@@ -1919,7 +1941,8 @@ body.sheet-open #dock::after { opacity: 1; }
   box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
 }
 .leaflet-bar a,
-.leaflet-touch .leaflet-bar a {
+.leaflet-touch .leaflet-bar a,
+.leaflet-bar button {
   position: relative;
   width: 40px;
   height: 40px;
@@ -1933,7 +1956,7 @@ body.sheet-open #dock::after { opacity: 1; }
 }
 /* An inset divider rather than a full width border, so the two halves
    read as one control. */
-.leaflet-bar a:first-child::after {
+.leaflet-bar > :not(:last-child)::after {
   content: "";
   position: absolute;
   left: 10px;
@@ -1949,10 +1972,10 @@ body.sheet-open #dock::after { opacity: 1; }
   color: var(--text);
 }
 @media (hover: hover) {
-  .leaflet-bar a:hover { background: var(--row-hover); color: var(--accent); }
+  .leaflet-bar a:hover, .leaflet-bar button:hover { background: var(--row-hover); color: var(--accent); }
 }
-.leaflet-bar a:active { background: var(--accent-soft); color: var(--accent); transform: scale(0.96); }
-.leaflet-bar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -5px; border-radius: 11px; }
+.leaflet-bar a:active, .leaflet-bar button:active { background: var(--accent-soft); color: var(--accent); transform: scale(0.96); }
+.leaflet-bar a:focus-visible, .leaflet-bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: -5px; border-radius: 11px; }
 .leaflet-bar a.leaflet-disabled,
 .leaflet-bar a.leaflet-disabled:hover {
   background: transparent;
@@ -2042,6 +2065,328 @@ body.sheet-open #dock::after { opacity: 1; }
 .pass-label::before { display: none; }
 .pass-in { display: inline-flex; align-items: center; gap: 6px; }
 .pass-label .v { color: var(--muted); font-weight: 500; }
+
+/* The route coloured by a reading. Each run of the line carries the
+   class of its bin and the mode on the body says which ramp the bins
+   stand for, so a change of theme recolours it from CSS alone, and the
+   map, the chart and the legend can never disagree. */
+body.mode-ele { --b0: var(--ele-0); --b1: var(--ele-1); --b2: var(--ele-2); --b3: var(--ele-3); --b4: var(--ele-4); --b5: var(--ele-5); }
+body.mode-speed { --b0: var(--spd-0); --b1: var(--spd-1); --b2: var(--spd-2); --b3: var(--spd-3); --b4: var(--spd-4); --b5: var(--spd-5); }
+body.mode-temp { --b0: var(--tmp-0); --b1: var(--tmp-1); --b2: var(--tmp-2); --b3: var(--tmp-3); --b4: var(--tmp-4); --b5: var(--tmp-5); }
+.leaflet-overlay-pane path.b0, #chart .ln.b0 { stroke: var(--b0); }
+.leaflet-overlay-pane path.b1, #chart .ln.b1 { stroke: var(--b1); }
+.leaflet-overlay-pane path.b2, #chart .ln.b2 { stroke: var(--b2); }
+.leaflet-overlay-pane path.b3, #chart .ln.b3 { stroke: var(--b3); }
+.leaflet-overlay-pane path.b4, #chart .ln.b4 { stroke: var(--b4); }
+.leaflet-overlay-pane path.b5, #chart .ln.b5 { stroke: var(--b5); }
+.leaflet-overlay-pane path.bn, #chart .ln.bn { stroke: var(--no-reading); }
+.leaflet-overlay-pane path.dot.b0 { fill: var(--b0); }
+.leaflet-overlay-pane path.dot.b1 { fill: var(--b1); }
+.leaflet-overlay-pane path.dot.b2 { fill: var(--b2); }
+.leaflet-overlay-pane path.dot.b3 { fill: var(--b3); }
+.leaflet-overlay-pane path.dot.b4 { fill: var(--b4); }
+.leaflet-overlay-pane path.dot.b5 { fill: var(--b5); }
+.leaflet-overlay-pane path.dot.bn { fill: var(--no-reading); }
+
+/* Colour by. It changes what the map and the chart show, so it sits at
+   the head of the panel, the first thing under the title on a wide
+   screen and at the top of the open sheet on a phone. */
+#colour { padding: 16px var(--gut) 0; }
+#colour-head { margin: 0 0 8px; }
+.seg {
+  position: relative;
+  display: flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--row-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+/* The pressed option's pill is one element that slides between them,
+   placed from the script, so the choice moves rather than blinks. */
+.seg .thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: var(--w, 0px);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
+  transform: translateX(var(--x, 0px));
+  transition: transform 0.24s var(--ease), width 0.24s var(--ease);
+  pointer-events: none;
+}
+.seg.still .thumb { transition: none; }
+.seg button {
+  position: relative;
+  /* Widths follow the words, so "Temperature" gets the room it needs
+     on a 280px card and "Day" does not take a quarter of it. */
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s var(--ease), transform 0.2s var(--ease);
+}
+.seg button[aria-pressed="true"] { color: var(--text); cursor: default; }
+@media (hover: hover) {
+  .seg button[aria-pressed="false"]:hover { color: var(--accent); }
+}
+.seg button[aria-pressed="false"]:active { transform: scale(0.96); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* Fingers get 40px rows, the same as the table. */
+@media (pointer: coarse) {
+  .seg button { height: 40px; }
+}
+/* The key under the control: the first and last value at the ends of a
+   bar of the bins in order, or of the days in order. */
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.legend .bar {
+  flex: 1;
+  min-width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+/* Filled from the script; with no map there is nothing to key. */
+.legend .lo:empty ~ .bar { visibility: hidden; }
+.legend .none { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; }
+.legend .none[hidden] { display: none; }
+.legend .none i { width: 16px; height: 4px; border-radius: 2px; background: var(--no-reading); }
+
+/* Playback speed, a quieter pill beside the play button. The visible
+   pill is smaller than its target, which stays 40px for a finger. */
+#rate {
+  grid-area: rate;
+  align-self: center;
+  position: relative;
+  min-width: 40px;
+  height: 32px;
+  margin-left: -4px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--row-hover);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.2s var(--ease);
+}
+#rate::after { content: ""; position: absolute; top: -4px; bottom: -4px; left: -2px; right: -2px; }
+#rate[data-rate="1"] { color: var(--muted); }
+@media (hover: hover) {
+  #rate:hover { background: var(--accent-soft); color: var(--accent); }
+}
+#rate:active { transform: scale(0.96); }
+#rate:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* On the side the strip is 26px tall; the target still reaches 40. */
+@media (max-width: 767px) and (max-height: 499px) {
+  #rate { height: 26px; align-self: end; }
+  #rate::after { top: -14px; bottom: 0; }
+}
+
+/* The shortcuts button, for a keyboard and a mouse only: at the right
+   end of the dock's header row, where the readout leaves room. */
+#keys-btn {
+  grid-area: read;
+  justify-self: end;
+  align-self: center;
+  display: none;
+  width: 28px;
+  height: 28px;
+  margin-right: -6px;
+  color: var(--muted);
+}
+#keys-btn svg { width: 16px; height: 16px; stroke-width: 1.4; }
+@media (min-width: 768px) and (pointer: fine) {
+  #keys-btn { display: inline-flex; }
+}
+
+/* Fit, full screen and copy link sit in a second bar under the zoom
+   buttons, drawn the same way. */
+.leaflet-top .leaflet-control + .leaflet-control { margin-top: 8px; }
+.leaflet-bar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.leaflet-bar button[hidden] { display: none; }
+/* On a phone the open sheet reaches up past the second bar; fit and copy
+   link come back with the closed sheet, and the zoom stays for a pinch's
+   sake on a tall phone. */
+.view-bar { transition: opacity 0.2s var(--ease), visibility 0s; }
+/* Under 500px of height two bars stacked reach the dock, so the second
+   floats to the left of the zoom instead. */
+@media (max-height: 499px) {
+  .leaflet-top .leaflet-control.view-bar { clear: none; margin-top: calc(var(--inset) + env(safe-area-inset-top, 0px)); margin-right: 8px; }
+}
+@media (max-width: 767px) {
+  body.sheet-open .view-bar { opacity: 0; visibility: hidden; transition: opacity 0.2s var(--ease), visibility 0s linear 0.2s; }
+}
+.leaflet-bar button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.view-bar .icon-exit, .view-bar .full .icon-enter { display: none; }
+.view-bar .full .icon-exit { display: block; }
+
+/* What a mouse near the route would jump to, beside the pointer. */
+.track-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: var(--shadow-chip), inset 0 0 0 1px var(--hairline);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s var(--ease);
+}
+.track-tip.on { opacity: 1; }
+.track-tip .v { color: var(--muted); font-weight: 500; }
+.track-tip::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--day, var(--accent));
+}
+.leaflet-container.near-track { cursor: pointer; }
+
+/* A short note that something happened, over the open map just above
+   the sheet or the dock. */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 10;
+  max-width: calc(100vw - 32px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--glass-solid);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-chip);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast:empty { visibility: hidden; }
+
+/* Keyboard shortcuts. A solid surface, not glass: it sits over the
+   card and the dock, and a fourth blurred layer would repaint for
+   nothing. */
+#keys {
+  width: min(400px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--glass-solid);
+  color: var(--text);
+  box-shadow: var(--shadow-float), inset 0 0 0 1px var(--hairline);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#keys::backdrop { background: rgba(10, 10, 20, 0.32); }
+@media (prefers-color-scheme: dark) {
+  #keys::backdrop { background: rgba(0, 0, 0, 0.5); }
+}
+#keys[open]::backdrop { animation: backdrop-in 0.2s var(--ease); }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+.keys-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 10px 4px 20px;
+}
+.keys-head h2 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.keys-list { margin: 0; padding: 4px 20px 16px; font-size: 13px; }
+.keys-list > div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 40px;
+  padding: 6px 0;
+  border-top: 1px solid var(--hairline);
+}
+.keys-list > div:first-child { border-top: 0; }
+.keys-list dt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; }
+.keys-list dd { margin: 0; }
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline), 0 1px 0 var(--hairline);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+.keys-note { margin: 0; padding: 0 20px 18px; font-size: 12px; color: var(--muted); }
+
+@media (forced-colors: active) {
+  .legend .bar, .legend .none i, .track-tip::before { forced-color-adjust: none; }
+  .seg button[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+}
 </style>
 </head>
 <body>
@@ -2077,6 +2422,7 @@ body.sheet-open #dock::after { opacity: 1; }
         <g class="icon-pause"><rect x="2.5" y="1.5" width="3.5" height="11"></rect><rect x="8" y="1.5" width="3.5" height="11"></rect></g>
       </svg>
     </button>
+    <button id="rate" type="button" data-rate="1" aria-label="Playback speed, 1x">1&times;</button>
     <label for="scrub" class="vh">Position along the trip</label>
     <input id="scrub" type="range" min="0" max="0" step="1" value="0">
     <output id="readout" for="scrub" aria-live="off">
@@ -2086,8 +2432,25 @@ body.sheet-open #dock::after { opacity: 1; }
       <span id="readout-km" class="km"></span>
     </output>
   </div>
+  <button id="keys-btn" class="icon-btn" type="button" aria-label="Keyboard shortcuts" aria-haspopup="dialog" title="Keyboard shortcuts (?)">
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="1.5" y="4" width="13" height="8.5" rx="1.8"></rect><path d="M4 6.6h.01M6.7 6.6h.01M9.3 6.6h.01M12 6.6h.01M4 9.6h.01M12 9.6h.01M6.2 9.6h3.6"></path></svg>
+  </button>
 </div>
 <aside id="stats" aria-label="Trip stats">
+  <section id="colour" aria-labelledby="colour-head">
+    <p id="colour-head" class="section-label">Colour by</p>
+    <div class="seg" role="group" aria-labelledby="colour-head">
+      <span class="thumb" aria-hidden="true"></span>
+      <button type="button" data-mode="day" aria-pressed="true">Day</button>
+      <button type="button" data-mode="ele" aria-pressed="false">Elevation</button>
+      <button type="button" data-mode="speed" aria-pressed="false">Speed</button>
+      <button type="button" data-mode="temp" aria-pressed="false">Temperature</button>
+    </div>
+    <p id="legend" class="legend">
+      <span class="lo"></span><span class="vh"> to </span><span class="bar" aria-hidden="true"></span><span class="hi"></span>
+      <span class="none" hidden><i aria-hidden="true"></i>No reading</span>
+    </p>
+  </section>
   <section id="daycard" aria-labelledby="dc-kicker dc-title" hidden>
     <div class="dc-top">
       <p id="dc-kicker" class="dc-kicker"><span class="swatch" aria-hidden="true"></span><span class="text"></span></p>
@@ -2156,6 +2519,26 @@ body.sheet-open #dock::after { opacity: 1; }
   </section>
 </aside>
 <div id="sheet-probe" aria-hidden="true"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="keys" aria-labelledby="keys-title">
+  <div class="keys-head">
+    <h2 id="keys-title">Keyboard shortcuts</h2>
+    <button id="keys-close" class="icon-btn" type="button" aria-label="Close">
+      <svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path d="M3.8 3.8l6.4 6.4M10.2 3.8l-6.4 6.4"></path></svg>
+    </button>
+  </div>
+  <dl class="keys-list">
+    <div><dt><kbd>Space</kbd></dt><dd>Play or pause</dd></div>
+    <div><dt><kbd><span aria-hidden="true">&larr;</span><span class="vh">Left arrow</span></kbd><kbd><span aria-hidden="true">&rarr;</span><span class="vh">Right arrow</span></kbd></dt><dd>One fix back or on</dd></div>
+    <div><dt><kbd>Shift</kbd><kbd><span aria-hidden="true">&larr;</span><span class="vh">Left arrow</span></kbd><kbd><span aria-hidden="true">&rarr;</span><span class="vh">Right arrow</span></kbd></dt><dd>Ten fixes back or on</dd></div>
+    <div><dt><kbd>[</kbd><kbd>]</kbd></dt><dd>Previous or next day</dd></div>
+    <div><dt><kbd>Home</kbd><kbd>End</kbd></dt><dd>Start or end of the trip, or of the picked day</dd></div>
+    <div><dt><kbd>F</kbd></dt><dd>Fit the whole trip</dd></div>
+    <div><dt><kbd>Esc</kbd></dt><dd>Clear the picked day</dd></div>
+    <div><dt><kbd>?</kbd></dt><dd>These shortcuts</dd></div>
+    <div><dt><kbd>+</kbd><kbd><span aria-hidden="true">&minus;</span><span class="vh">Minus</span></kbd></dt><dd>Zoom, while the map has the focus; the arrows then pan it</dd></div>
+  </dl>
+</dialog>
 <script id="trip-data" type="application/json">__TRIP_DATA__</script>
 <script>
 (function () {
@@ -2202,6 +2585,9 @@ body.sheet-open #dock::after { opacity: 1; }
   const canAnimate = !reduceMotion && typeof Element.prototype.animate === 'function' &&
     typeof Animation === 'function' && 'finished' in Animation.prototype;
   const EASE_UI = 'cubic-bezier(0.22, 0.8, 0.24, 1)';
+  // True while a link in the address bar is being put on screen at load:
+  // the page opens on that view, so nothing flies or unrolls to it.
+  let booting = false;
 
   // Things that move for a while (the load sequence, playback, a pan or a
   // zoom, a scrub) say so here, and the glass rests while any of them
@@ -2256,10 +2642,10 @@ body.sheet-open #dock::after { opacity: 1; }
     const handleEl = document.getElementById('handle');
     const statsEl = document.getElementById('stats');
     const o = { top: 0, left: 0, bottom: 0, right: 0, attrib: 0 };
-    const zoomEl = document.querySelector('.leaflet-control-zoom');
-    if (zoomEl && getComputedStyle(zoomEl).visibility !== 'hidden') {
-      o.right = m.right - zoomEl.getBoundingClientRect().left;
-    }
+    // The zoom bar, and the bar under it or, on a short screen, beside it.
+    Array.prototype.forEach.call(document.querySelectorAll('.leaflet-top.leaflet-right .leaflet-control'), function (ctl) {
+      if (getComputedStyle(ctl).visibility !== 'hidden') o.right = Math.max(o.right, m.right - ctl.getBoundingClientRect().left);
+    });
     const attribEl = document.querySelector('.leaflet-control-attribution');
     if (attribEl) o.attrib = attribEl.offsetHeight + 8;
     if (getComputedStyle(handleEl).display === 'none') {
@@ -2370,7 +2756,7 @@ body.sheet-open #dock::after { opacity: 1; }
   // ahead of the 0.45s sheet, so the route clears the rising edge on
   // every frame. The fly first eases in and the sheet would catch it.
   function fitTo(bounds, statsTo, quick) {
-    if (reduceMotion) {
+    if (reduceMotion || booting) {
       map.fitBounds(bounds, Object.assign({ animate: false }, fitPadding(statsTo)));
     } else if (quick || typeof statsTo === 'number') {
       map.fitBounds(bounds, Object.assign({ animate: true, duration: 0.3 }, fitPadding(statsTo)));
@@ -2500,42 +2886,171 @@ body.sheet-open #dock::after { opacity: 1; }
       return shade;
     });
   });
-  TRIP.days.forEach(function (day, d) {
-    const group = L.layerGroup();
-    const dayCoords = [];
+  // Colour by: the day (each in its own colour from build.py), or a
+  // reading along the way in six even bins of one ramp. A step between
+  // two fixes takes its bin from the step itself: the height halfway
+  // along, the speed it was driven at (build.py's points[i][6]) and the
+  // reading at the fix it leaves from. The choice is kept for the next
+  // visit; storage can be missing or refuse, and then it is just Day.
+  const MODES = ['day', 'ele', 'speed', 'temp'];
+  const MODE_KEY = 'roadtrip-colour';
+  let colourMode = 'day';
+  try {
+    const kept = window.localStorage.getItem(MODE_KEY);
+    if (MODES.indexOf(kept) > 0) colourMode = kept;
+  } catch (err) { /* private mode or blocked storage */ }
+  const BINS = 6;
+  // Round bin edges, so the legend's ends are numbers a person would
+  // pick: 300 m, 20 km/h and 5 degree steps for this trip.
+  function niceStep(raw) {
+    const mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    const steps = [1, 2, 2.5, 3, 5, 10];
+    for (let k = 0; k < steps.length; k++) if (steps[k] * mag >= raw) return steps[k] * mag;
+    return 10 * mag;
+  }
+  function modeDomain(values, floorAtZero) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    values.forEach(function (v) { if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+    if (!(hi >= lo)) return null;
+    // Readings a few metres under sea level are GPS noise, not a bin of
+    // their own below zero.
+    if (floorAtZero) lo = Math.max(0, lo);
+    const step = niceStep(Math.max(1e-6, (hi - lo) / BINS));
+    const from = Math.floor(lo / step) * step;
+    // A floor that rounds down can push the top past the last bin.
+    const st = from + step * BINS < hi ? niceStep((hi - from) / BINS) : step;
+    return { lo: from, step: st, hi: from + st * BINS };
+  }
+  const tripWx = TRIP.wx || [];
+  function stepValue(mode, i) {
+    const p = TRIP.points[i];
+    if (mode === 'ele') return i < TRIP.points.length - 1 ? (p[2] + TRIP.points[i + 1][2]) / 2 : p[2];
+    if (mode === 'speed') return p[6] || 0;
+    return tripWx[i] ? tripWx[i][0] : null;
+  }
+  const modeInfo = {};
+  ['ele', 'speed', 'temp'].forEach(function (mode) {
+    const values = TRIP.points.map(function (p, i) { return stepValue(mode, i); });
+    const dom = modeDomain(values, mode !== 'temp');
+    modeInfo[mode] = {
+      dom: dom,
+      bins: values.map(function (v) {
+        if (v === null || !dom) return 'bn';
+        return 'b' + Math.max(0, Math.min(BINS - 1, Math.floor((v - dom.lo) / dom.step)));
+      })
+    };
+  });
+  // A mode with nothing to show, such as temperature on a build without
+  // the weather file, is not offered.
+  if (colourMode !== 'day' && !modeInfo[colourMode].dom) colourMode = 'day';
+  // The fixes of one segment in runs that share a bin, so a day is a
+  // handful of paths rather than one per step.
+  function runsOf(seg, bins) {
+    const out = [];
+    let a = seg[0];
+    let bin = bins[a];
+    for (let i = seg[0] + 1; i < seg[1]; i++) {
+      if (bins[i] !== bin) { out.push({ a: a, b: i, bin: bin }); a = i; bin = bins[i]; }
+    }
+    out.push({ a: a, b: seg[1], bin: bin });
+    return out;
+  }
+
+  // Each day's coloured lines, apart from its casings, so a change of
+  // mode swaps only these. In a reading's mode a day is one path per bin,
+  // each holding every run of that bin, so even speed, which changes bin
+  // every few fixes, stays near two hundred paths and a fly redraws at
+  // the day mode's cost. The reveal on load draws each path along its
+  // length, which needs one path per run, so while it plays the runs are
+  // split (linesSplit) and each entry carries the fixes it runs between.
+  const dayLines = [];
+  let linesSplit = false;
+  function addDayLines(d) {
+    const day = TRIP.days[d];
+    const group = dayLayers[d];
+    const bins = colourMode === 'day' ? null : modeInfo[colourMode].bins;
+    const parts = [];
+    const byBin = {};
+    const order = [];
     day.segments.forEach(function (seg) {
-      const coords = latlngs.slice(seg[0], seg[1] + 1);
-      let layer;
-      if (coords.length === 1) {
-        layer = L.circleMarker(coords[0], {
+      if (seg[1] === seg[0]) {
+        const layer = L.circleMarker(latlngs[seg[0]], {
+          className: bins ? 'dot ' + bins[seg[0]] : '',
           radius: 3, color: day.color, fillColor: day.color,
           weight: 1, opacity: LINE_OPACITY, fillOpacity: LINE_OPACITY, interactive: false
         });
-      } else {
+        parts.push({ layer: layer, seg: seg, dot: true });
+        return;
+      }
+      const runs = bins ? runsOf(seg, bins) : [{ a: seg[0], b: seg[1], bin: '' }];
+      runs.forEach(function (run) {
+        if (bins && !linesSplit) {
+          if (!byBin[run.bin]) { byBin[run.bin] = []; order.push(run.bin); }
+          byBin[run.bin].push(latlngs.slice(run.a, run.b + 1));
+        } else {
+          parts.push({ layer: routeLine(latlngs.slice(run.a, run.b + 1), run.bin, day.color), seg: [run.a, run.b] });
+        }
+      });
+    });
+    order.forEach(function (bin) { parts.push({ layer: routeLine(byBin[bin], bin, day.color), seg: null }); });
+    parts.forEach(function (part) { group.addLayer(part.layer); });
+    dayLines[d] = parts;
+  }
+  // Not interactive: the map itself takes the tap, so the target is a
+  // thumb's width around the line rather than the line's 3px.
+  function routeLine(coords, bin, color) {
+    return L.polyline(coords, {
+      className: bin, color: color, weight: LINE_WEIGHT, opacity: LINE_OPACITY,
+      lineJoin: 'round', lineCap: 'round', interactive: false
+    });
+  }
+  // The new paths go in on top of everything, so the stacking is put back
+  // the way it was, date order and then whatever owns the look, and every
+  // day is styled again from scratch.
+  function rebuildLines(split) {
+    linesSplit = split;
+    dayLines.forEach(function (parts, d) {
+      parts.forEach(function (part) { dayLayers[d].removeLayer(part.layer); });
+      addDayLines(d);
+    });
+    raiseDays(0, TRIP.days.length - 1);
+    if (selectedDay !== null) raiseDays(selectedDay, selectedDay);
+    else if (playing) raiseDays(0, shownDay);
+    else if (hoverDay !== null) raiseDays(hoverDay, hoverDay);
+    dayLooks.length = 0;
+    styleDays();
+  }
+  function allLines() {
+    return dayLines.reduce(function (all, parts) { return all.concat(parts); }, []);
+  }
+
+  TRIP.days.forEach(function (day, d) {
+    const group = L.layerGroup();
+    const dayCoords = [];
+    dayLayers.push(group);
+    day.segments.forEach(function (seg) {
+      const coords = latlngs.slice(seg[0], seg[1] + 1);
+      if (coords.length > 1) {
         // A casing under each line keeps the colour readable over the
         // greens and tans of real tiles. Its stroke comes from CSS so it
-        // flips with the theme.
+        // flips with the theme. The casings go in before the lines, so
+        // no casing of a day covers one of its own lines where it crosses
+        // itself.
         const casing = L.polyline(coords, {
           className: 'casing', weight: LINE_WEIGHT + 3, opacity: CASING_OPACITY,
           lineJoin: 'round', lineCap: 'round', interactive: false
         });
         group.addLayer(casing);
         routeParts.push({ layer: casing, seg: seg });
-        // Not interactive: the map itself takes the tap, so the target is
-        // a thumb's width around the line rather than the line's 3px.
-        layer = L.polyline(coords, {
-          color: day.color, weight: LINE_WEIGHT, opacity: LINE_OPACITY,
-          lineJoin: 'round', lineCap: 'round', interactive: false
-        });
       }
-      group.addLayer(layer);
-      routeParts.push({ layer: layer, seg: seg, dot: coords.length === 1 });
       dayCoords.push.apply(dayCoords, coords);
     });
+    addDayLines(d);
     group.addTo(map);
-    dayLayers.push(group);
     dayBounds.push(L.latLngBounds(dayCoords));
   });
+  document.body.classList.add('mode-' + colourMode);
 
   // A tap anywhere within a thumb's width of the track jumps the marker
   // to the nearest fix, like a touch on the chart. The distance is to the
@@ -2548,8 +3063,10 @@ body.sheet-open #dock::after { opacity: 1; }
       for (let i = seg[0]; i < seg[1]; i++) drawn.push(i);
     });
   });
-  map.on('click', function (e) {
-    const here = map.latLngToContainerPoint(e.latlng);
+  // The fix a point on the map stands for, or -1 when the line is further
+  // than a thumb away. The tap and the mouse preview share it, so the
+  // preview names exactly the fix a click there would go to.
+  function nearestFix(here) {
     let best = -1;
     let bestDist = TAP_RADIUS_PX;
     drawn.forEach(function (i) {
@@ -2565,6 +3082,10 @@ body.sheet-open #dock::after { opacity: 1; }
       const dist = Math.sqrt((here.x - px) * (here.x - px) + (here.y - py) * (here.y - py));
       if (dist < bestDist) { bestDist = dist; best = t < 0.5 ? i : i + 1; }
     });
+    return best;
+  }
+  map.on('click', function (e) {
+    const best = nearestFix(map.latLngToContainerPoint(e.latlng));
     if (best >= 0) setIndex(best, 'map');
   });
 
@@ -3078,6 +3599,7 @@ body.sheet-open #dock::after { opacity: 1; }
     // marker's own pan takes it there, and a fit out to the whole trip
     // first would zoom out and then pan.
     if (how !== 'leave') fitTo(selectedDay === null ? trackBounds : dayBounds[selectedDay]);
+    scheduleHash();
   }
 
   // Puts days first to last above the rest, in that order. The markers
@@ -3230,7 +3752,7 @@ body.sheet-open #dock::after { opacity: 1; }
   let underAnims = [];
   function slideUnder(from, to) {
     to = to || 0;
-    if (!canAnimate || Math.abs(from - to) < 1) return;
+    if (!canAnimate || booting || Math.abs(from - to) < 1) return;
     holdMotion('card', CARD_MS + 20);
     // Only what can be seen moves: each moving section is a layer that has
     // to be drawn whole first, and the table alone is 1,200px tall.
@@ -3434,7 +3956,7 @@ body.sheet-open #dock::after { opacity: 1; }
       restoreTop = s0;
       scrollStats(0, true);
     }
-    if (canAnimate && !sheetShut) {
+    if (canAnimate && !booting && !sheetShut) {
       holdMotion('card', CARD_MS + 20);
       if (opening) {
         card.animate([
@@ -3546,9 +4068,6 @@ body.sheet-open #dock::after { opacity: 1; }
   }
   document.getElementById('dc-close').addEventListener('click', function () { selectDay(null, 'close'); });
 
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && selectedDay !== null) selectDay(null, 'escape');
-  });
   // A day picked on the map or chart while the list was scrolled down is
   // what the reader is after, so the opening sheet goes to its card.
   function revealCard() {
@@ -4267,9 +4786,10 @@ body.sheet-open #dock::after { opacity: 1; }
     // A jump that flies rings the halo when the fly lands instead.
     let flying = false;
     if (JUMPS[source]) flying = bringIntoView(at);
-    else if (source !== 'init' && source !== 'select') map.panInside(at, panPadding());
+    else if (source !== 'init' && source !== 'select' && source !== 'link') map.panInside(at, panPadding());
     if (flying) restHaloLater();
     else if (source !== 'init' && source !== 'play') haloSoon();
+    scheduleHash();
   }
 
   // Playback runs the whole trip in a minute at a steady speed along the
@@ -4281,6 +4801,8 @@ body.sheet-open #dock::after { opacity: 1; }
   const KM_PER_MS = totals.km / PLAY_MS;
   const GAP_S = 6 * 3600;
   let playing = false;
+  // 1, 2 or 4 times the pace above, from the button beside play.
+  let playRate = 1;
   let playFrame = 0;
   let playClock = null;
   // Where the playhead really is. With less motion the marker shows the
@@ -4310,7 +4832,7 @@ body.sheet-open #dock::after { opacity: 1; }
     let f = playF;
     // A picked day plays to its own end and stops there.
     const end = selectedDay === null ? LAST : dayHi[selectedDay];
-    let km = dt * (selectedDay === null ? KM_PER_MS : dayPlayRate(selectedDay));
+    let km = dt * playRate * (selectedDay === null ? KM_PER_MS : dayPlayRate(selectedDay));
     while (km > 0 && i < end) {
       const a = points[i];
       const b = points[i + 1];
@@ -4349,6 +4871,7 @@ body.sheet-open #dock::after { opacity: 1; }
     }
     styleDays();
     if (on) trackEl.classList.remove('pulse'); else restHalo();
+    if (!on) scheduleHash();
   }
   // Pause keeps the fraction between fixes, so play does not jump back to
   // the last fix passed.
@@ -4373,13 +4896,14 @@ body.sheet-open #dock::after { opacity: 1; }
     setPlaying(true);
     playFrame = requestAnimationFrame(playStep);
   }
-  playBtn.addEventListener('click', function () {
+  function togglePlay() {
     if (playing) { stopPlay(); return; }
     // On a phone the open sheet would hide most of what plays, so it
     // closes; pausing leaves it closed.
     if (getComputedStyle(handle).display !== 'none' && document.body.classList.contains('sheet-open')) setSheet(false);
     startPlay();
-  });
+  }
+  playBtn.addEventListener('click', togglePlay);
   slider.addEventListener('input', function () { setIndex(nearestIndex(Number(slider.value)), 'slider'); });
   slider.addEventListener('pointerdown', function () { motion('slide', true); });
   ['pointerup', 'pointercancel', 'change'].forEach(function (type) {
@@ -4391,7 +4915,7 @@ body.sheet-open #dock::after { opacity: 1; }
     const step = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
     if (!step) return;
     e.preventDefault();
-    setIndex(current + step, 'key');
+    setIndex(current + step * (e.shiftKey ? 10 : 1), 'key');
   });
 
   // The chart viewBox is in CSS pixels so stroke widths and the 10px
@@ -4980,7 +5504,7 @@ body.sheet-open #dock::after { opacity: 1; }
     moveCursor(current);
     const same = Math.abs(from.a - to.a) < 0.01 && Math.abs(from.w - to.w) < 0.01 &&
       Math.abs(fromY.lo - yDom.lo) < 0.5 && Math.abs(fromY.hi - yDom.hi) < 0.5;
-    if (!canAnimate || same) {
+    if (!canAnimate || booting || same) {
       old.parentNode.removeChild(old);
       oldY.parentNode.removeChild(oldY);
       return;
@@ -5140,26 +5664,40 @@ body.sheet-open #dock::after { opacity: 1; }
     const plotG = svgEl('g', { 'clip-path': 'url(#chart-clip)' });
     const days = svgEl('g', {});
     zoomG = svgEl('g', { class: 'zoom' });
+    // In a reading's mode the line takes the same runs as on the map, one
+    // path per bin per day, so the day groups still fade as one. The area
+    // stays one neutral wash per day: washes split at every change of bin
+    // left a hairline seam at each join.
+    const bins = colourMode === 'day' ? null : modeInfo[colourMode].bins;
     dayGroups = TRIP.days.map(function (day) {
       const g = svgEl('g', { class: 'day' });
-      let line = '';
+      const byBin = {};
+      const order = [];
       let area = '';
+      function trace(a, b) {
+        let d = '';
+        for (let i = a; i <= b; i++) {
+          d += (i === a ? 'M' : 'L') + points[i][4].toFixed(2) + ' ' + y(points[i][2]).toFixed(1);
+        }
+        return d;
+      }
       day.segments.forEach(function (seg) {
         if (seg[1] <= seg[0]) return;
-        let d = '';
-        for (let i = seg[0]; i <= seg[1]; i++) {
-          d += (i === seg[0] ? 'M' : 'L') + points[i][4].toFixed(2) + ' ' + y(points[i][2]).toFixed(1);
-        }
-        line += d;
-        area += d + 'L' + points[seg[1]][4].toFixed(2) + ' ' + floorY + 'L' + points[seg[0]][4].toFixed(2) + ' ' + floorY + 'Z';
+        area += trace(seg[0], seg[1]) + 'L' + points[seg[1]][4].toFixed(2) + ' ' + floorY + 'L' + points[seg[0]][4].toFixed(2) + ' ' + floorY + 'Z';
+        (bins ? runsOf(seg, bins) : [{ a: seg[0], b: seg[1], bin: '' }]).forEach(function (run) {
+          if (!byBin[run.bin]) { byBin[run.bin] = ''; order.push(run.bin); }
+          byBin[run.bin] += trace(run.a, run.b);
+        });
       });
-      if (line) {
-        g.appendChild(svgEl('path', { d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
+      if (area) {
+        g.appendChild(svgEl('path', { class: bins ? 'area an' : 'area', d: area, fill: day.color, 'fill-opacity': 0.14, stroke: 'none' }));
+      }
+      order.forEach(function (bin) {
         g.appendChild(svgEl('path', {
-          d: line, fill: 'none', stroke: day.color, 'stroke-width': 2,
+          class: 'ln ' + bin, d: byBin[bin], fill: 'none', stroke: day.color, 'stroke-width': 2,
           'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke'
         }));
-      }
+      });
       zoomG.appendChild(g);
       return g;
     });
@@ -5243,7 +5781,7 @@ body.sheet-open #dock::after { opacity: 1; }
     chart.appendChild(hit);
 
     fadeChart();
-    moveCursor(current);
+    moveCursor(current, false, currentFrac);
   }
 
   // The dock changes width on rotation and when the desktop panel resizes
@@ -5258,6 +5796,490 @@ body.sheet-open #dock::after { opacity: 1; }
   } else {
     window.addEventListener('resize', scheduleRender);
   }
+
+  // Colour by. The four buttons, the sliding pill under the pressed one
+  // and the key under them.
+  const segEl = document.querySelector('#colour .seg');
+  const segBtns = Array.prototype.slice.call(segEl.querySelectorAll('button'));
+  const legendEl = document.getElementById('legend');
+  const legendLo = legendEl.querySelector('.lo');
+  const legendHi = legendEl.querySelector('.hi');
+  const legendBar = legendEl.querySelector('.bar');
+  const legendNone = legendEl.querySelector('.none');
+  const MODE_UNIT = { ele: ' m', speed: ' km/h', temp: DEG };
+  segBtns.forEach(function (b) {
+    const m = b.getAttribute('data-mode');
+    if (m !== 'day' && !modeInfo[m].dom) b.hidden = true;
+    b.setAttribute('aria-pressed', m === colourMode ? 'true' : 'false');
+    b.addEventListener('click', function () { setMode(m); });
+  });
+  function placeThumb(still) {
+    const b = segBtns.filter(function (n) { return n.getAttribute('data-mode') === colourMode; })[0];
+    if (!b || !b.offsetWidth) return;
+    // The first placement, and any after a change of size, lands at once;
+    // only a change of choice slides.
+    if (still) segEl.classList.add('still');
+    segEl.style.setProperty('--x', b.offsetLeft + 'px');
+    segEl.style.setProperty('--w', b.offsetWidth + 'px');
+    if (still) { void segEl.offsetWidth; segEl.classList.remove('still'); }
+  }
+  function fillLegend() {
+    let stops;
+    if (colourMode === 'day') {
+      const n = TRIP.days.length;
+      legendLo.textContent = TRIP.days[0].label;
+      legendHi.textContent = TRIP.days[n - 1].label;
+      stops = TRIP.days.map(function (day, d) {
+        return day.color + ' ' + (d / n * 100).toFixed(2) + '% ' + ((d + 1) / n * 100).toFixed(2) + '%';
+      });
+      legendNone.hidden = true;
+    } else {
+      const info = modeInfo[colourMode];
+      legendLo.textContent = fmtInt(info.dom.lo) + MODE_UNIT[colourMode];
+      legendHi.textContent = fmtInt(info.dom.hi) + MODE_UNIT[colourMode];
+      stops = [];
+      for (let k = 0; k < BINS; k++) {
+        stops.push('var(--b' + k + ') ' + (k / BINS * 100).toFixed(2) + '% ' + ((k + 1) / BINS * 100).toFixed(2) + '%');
+      }
+      legendNone.hidden = info.bins.indexOf('bn') < 0;
+    }
+    legendBar.style.background = 'linear-gradient(to right, ' + stops.join(', ') + ')';
+  }
+  fillLegend();
+  placeThumb(true);
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(function () { placeThumb(true); }).observe(segEl);
+  }
+  function setMode(m) {
+    if (m === colourMode || (m !== 'day' && !modeInfo[m].dom)) return;
+    // The route is being drawn on load with the old lines; it finishes
+    // first so the new ones never start half drawn.
+    finishReveal();
+    document.body.classList.remove('mode-' + colourMode);
+    colourMode = m;
+    document.body.classList.add('mode-' + m);
+    try { window.localStorage.setItem(MODE_KEY, m); } catch (err) { /* not kept, still shown */ }
+    segBtns.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-mode') === m ? 'true' : 'false'); });
+    placeThumb(false);
+    fillLegend();
+    rebuildLines(false);
+    drawnW = 0;
+    render();
+  }
+
+  // Playback speed, cycled from the button beside play. It can change
+  // while playing; the next frame takes the new pace.
+  const rateBtn = document.getElementById('rate');
+  const RATES = [1, 2, 4];
+  rateBtn.addEventListener('click', function () {
+    playRate = RATES[(RATES.indexOf(playRate) + 1) % RATES.length];
+    rateBtn.textContent = playRate + '×';
+    rateBtn.setAttribute('data-rate', String(playRate));
+    rateBtn.setAttribute('aria-label', 'Playback speed, ' + playRate + 'x');
+  });
+
+  // The + and - buttons and the map's own + and - keys zoom about the
+  // middle of the map that can be seen, not of the full-bleed box under
+  // the card and the dock, or a few presses would zoom the route out of
+  // the open part. The wheel and a pinch already zoom about the pointer.
+  const plainSetZoom = map.setZoom;
+  map.setZoom = function (zoom, options) {
+    if (!this._loaded) return plainSetZoom.call(this, zoom, options);
+    const z = Math.max(this.getMinZoom(), Math.min(this.getMaxZoom(), zoom));
+    if (z === this.getZoom()) return this;
+    const o = overlayInsets();
+    const size = this.getSize();
+    return this.setZoomAround(L.point((o.left + size.x) / 2, (o.top + size.y - o.bottom - o.attrib) / 2), z, options);
+  };
+
+  // Fit, full screen and copy link, in a bar of their own under the zoom.
+  const fsRoot = document.documentElement;
+  const fsEnter = fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen;
+  const fsExit = document.exitFullscreen || document.webkitExitFullscreen;
+  const canFull = !!(fsEnter && fsExit && (document.fullscreenEnabled || document.webkitFullscreenEnabled));
+  function fullNow() { return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  const ViewBar = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd: function () {
+      const bar = L.DomUtil.create('div', 'leaflet-bar view-bar');
+      // A press here is not a tap on the route under it.
+      L.DomEvent.disableClickPropagation(bar);
+      L.DomEvent.disableScrollPropagation(bar);
+      return bar;
+    }
+  });
+  const viewBar = new ViewBar().addTo(map).getContainer();
+  function barButton(label, title, icons, fn) {
+    const b = el('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', label);
+    b.title = title;
+    icons.forEach(function (icon) {
+      const svg = lineIcon('0 0 16 16', icon[1]);
+      if (icon[0]) svg.setAttribute('class', icon[0]);
+      b.appendChild(svg);
+    });
+    b.addEventListener('click', fn);
+    viewBar.appendChild(b);
+    return b;
+  }
+  barButton('Fit the whole trip', 'Fit the whole trip (F)', [['', [
+    'M2.5 5.5v-3h3', 'M10.5 2.5h3v3', 'M13.5 10.5v3h-3', 'M5.5 13.5h-3v-3', 'M5 10.4c1.1-2.2 2.3-.4 3.2-2.1S9.9 5.9 11 6.3'
+  ]]], function () { fitTo(trackBounds); });
+  const fullBtn = barButton('Full screen', 'Full screen', [
+    ['icon-enter', ['M9.5 2.5h4v4', 'M13.5 2.5 9.7 6.3', 'M6.5 13.5h-4v-4', 'M2.5 13.5l3.8-3.8']],
+    ['icon-exit', ['M9.6 2.6v3.8h3.8', 'M9.6 6.4l3.9-3.9', 'M6.4 13.4V9.6H2.6', 'M6.4 9.6l-3.9 3.9']]
+  ], function () {
+    // A refusal (no gesture, a frame that does not allow it) leaves the
+    // page as it is; there is nothing to tell the viewer.
+    const p = fullNow() ? fsExit.call(document) : fsEnter.call(fsRoot);
+    if (p && typeof p.catch === 'function') p.catch(function () {});
+  });
+  fullBtn.hidden = !canFull;
+  function markFull() {
+    const on = !!fullNow();
+    fullBtn.classList.toggle('full', on);
+    fullBtn.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+    fullBtn.title = on ? 'Leave full screen' : 'Full screen';
+    // The window changes size without a change of breakpoint, so the
+    // view is fitted again the way a rotation fits it.
+    layoutChanged();
+  }
+  if (canFull) {
+    document.addEventListener('fullscreenchange', markFull);
+    document.addEventListener('webkitfullscreenchange', markFull);
+  }
+  barButton('Copy link to this view', 'Copy link', [['', [
+    'M6.9 9.1l2.2-2.2', 'M8.3 4.4l.9-.9a2.5 2.5 0 0 1 3.5 3.5l-.9.9', 'M7.7 11.6l-.9.9a2.5 2.5 0 0 1-3.5-3.5l.9-.9'
+  ]]], copyLink);
+  panelsMoved();
+
+  // With a mouse, a label beside the pointer names the fix a click there
+  // would jump to, and a pale dot shows it on the line. Once a frame at
+  // most, with the tap's own search, so the two always agree.
+  const finePointer = typeof window.matchMedia === 'function' ? window.matchMedia('(hover: hover) and (pointer: fine)') : null;
+  const trackTip = el('div', 'track-tip');
+  trackTip.setAttribute('aria-hidden', 'true');
+  const tipWhen = el('span');
+  const tipKm = el('span', 'v');
+  trackTip.appendChild(tipWhen);
+  trackTip.appendChild(tipKm);
+  mapEl.appendChild(trackTip);
+  let tipFrame = 0;
+  let tipEv = null;
+  let tipLast = null;
+  let tipShown = -1;
+  function hideTrackTip() {
+    if (tipFrame) { cancelAnimationFrame(tipFrame); tipFrame = 0; }
+    tipEv = null;
+    if (tipShown < 0) return;
+    tipShown = -1;
+    trackTip.classList.remove('on');
+    mapEl.classList.remove('near-track');
+    ghostEl.classList.remove('on');
+  }
+  function trackHover() {
+    tipFrame = 0;
+    const ev = tipEv;
+    if (!ev) return;
+    // Not while a drag pans the map or a zoom is under way, and not over
+    // the map's own buttons.
+    if (ev.buttons || ev.control || map._animatingZoom) { hideTrackTip(); return; }
+    const r = mapEl.getBoundingClientRect();
+    const here = L.point(ev.x - r.left, ev.y - r.top);
+    const i = nearestFix(here);
+    if (i < 0) { hideTrackTip(); return; }
+    if (i !== tipShown) {
+      const p = points[i];
+      const color = TRIP.days[p[5]].color;
+      tipWhen.textContent = TRIP.days[p[5]].label + ', ' + fmtTime.format(new Date(p[3] * 1000));
+      tipKm.textContent = fmt1(p[4]) + ' km';
+      trackTip.style.setProperty('--day', color);
+      ghost.setLatLng(latlngs[i]);
+      ghostEl.style.setProperty('--day', color);
+    }
+    tipShown = i;
+    ghostEl.classList.add('on');
+    // Up and to the right of the pointer, flipped where that would run
+    // off the map or under the title.
+    const o = overlayInsets();
+    const size = map.getSize();
+    const w = trackTip.offsetWidth;
+    const h = trackTip.offsetHeight;
+    let x = here.x + 14;
+    if (x + w > size.x - 8) x = here.x - 14 - w;
+    let y = here.y - h - 10;
+    if (y < o.top + 8) y = here.y + 20;
+    trackTip.style.transform = 'translate(' + Math.round(x) + 'px, ' + Math.round(y) + 'px)';
+    trackTip.classList.add('on');
+    mapEl.classList.add('near-track');
+  }
+  mapEl.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse' || !finePointer || !finePointer.matches) return;
+    tipEv = tipLast = {
+      x: e.clientX, y: e.clientY, buttons: e.buttons,
+      control: !!(e.target && e.target.closest && e.target.closest('.leaflet-control'))
+    };
+    if (!tipFrame) tipFrame = requestAnimationFrame(trackHover);
+  });
+  mapEl.addEventListener('pointerleave', function () { tipLast = null; hideTrackTip(); });
+  map.on('zoomstart dragstart', hideTrackTip);
+  // Playback pans the map under a pointer that has not moved, so the
+  // label is worked out again for the same spot on the screen.
+  map.on('move', function () {
+    if (tipShown >= 0 && tipLast && !tipFrame) {
+      tipEv = tipLast;
+      tipFrame = requestAnimationFrame(trackHover);
+    }
+  });
+
+  // A short note over the open map, read out politely. Emptied first so
+  // the same words twice are said twice.
+  const toastEl = document.getElementById('toast');
+  let toastTimer = 0;
+  let toastFrame = 0;
+  function toast(text) {
+    const o = overlayInsets();
+    const size = map.getSize();
+    toastEl.style.left = Math.round((o.left + size.x - o.right) / 2) + 'px';
+    toastEl.style.bottom = (o.bottom + o.attrib + 12) + 'px';
+    toastEl.textContent = '';
+    if (toastFrame) cancelAnimationFrame(toastFrame);
+    toastFrame = requestAnimationFrame(function () {
+      toastFrame = 0;
+      toastEl.textContent = text;
+      toastEl.classList.add('on');
+    });
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastTimer = 0; toastEl.classList.remove('on'); }, 2400);
+  }
+
+  // Deep links. The address carries the picked day and the marker,
+  // #day=sep-12&at=<epoch seconds>, each left out when it is the default
+  // (no day, or the marker where a pick puts it). Written in place, not
+  // as history, and only once things settle: playback moves the marker
+  // every frame.
+  let hashReady = false;
+  let hashTimer = 0;
+  function daySlug(d) { return TRIP.days[d].label.toLowerCase().replace(/\s+/g, '-'); }
+  function linkHash() {
+    const parts = [];
+    if (selectedDay !== null) parts.push('day=' + daySlug(selectedDay));
+    if (current !== (selectedDay === null ? 0 : driveStart[selectedDay])) parts.push('at=' + points[current][3]);
+    return parts.join('&');
+  }
+  function scheduleHash() {
+    // Playback asks on every frame; the pause writes the place it stopped.
+    if (!hashReady || playing) return;
+    if (hashTimer) clearTimeout(hashTimer);
+    hashTimer = setTimeout(writeHash, 300);
+  }
+  function writeHash() {
+    if (hashTimer) { clearTimeout(hashTimer); hashTimer = 0; }
+    if (!hashReady) return;
+    const h = linkHash();
+    const base = location.href.split('#')[0];
+    const url = h ? base + '#' + h : base;
+    if (url === location.href) return;
+    // A sandboxed frame can refuse; the page works without the address.
+    try { history.replaceState(history.state, '', url); } catch (err) { /* not written */ }
+  }
+  // The fix nearest a time, by bisection: the fixes are in time order.
+  function fixAtTime(t) {
+    let lo = 0;
+    let hi = LAST;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (points[mid][3] < t) lo = mid + 1; else hi = mid;
+    }
+    if (lo > 0 && t - points[lo - 1][3] < points[lo][3] - t) lo -= 1;
+    return lo;
+  }
+  function readLink() {
+    const out = { day: null, at: null };
+    location.hash.replace(/^#/, '').split('&').forEach(function (kv) {
+      const k = kv.indexOf('=');
+      if (k < 1) return;
+      let key;
+      let val;
+      try {
+        key = decodeURIComponent(kv.slice(0, k));
+        val = decodeURIComponent(kv.slice(k + 1)).toLowerCase();
+      } catch (err) { return; }
+      if (key === 'day') {
+        for (let d = 0; d < TRIP.days.length; d++) if (daySlug(d) === val) out.day = d;
+      } else if (key === 'at' && /^\d{1,12}$/.test(val)) {
+        out.at = fixAtTime(Number(val));
+      }
+    });
+    return out;
+  }
+  function applyLink(link) {
+    if (link.day !== null) {
+      selectDay(link.day, 'link', undefined, link.at === null ? undefined : link.at);
+      return;
+    }
+    if (selectedDay !== null) selectDay(null, 'link');
+    setIndex(link.at === null ? 0 : link.at, booting ? 'link' : 'jump');
+  }
+  // A link pasted over this one, or edited by hand. The page's own
+  // writes are replaceState, which sends no hashchange.
+  window.addEventListener('hashchange', function () { applyLink(readLink()); });
+
+  function copyByCommand(text) {
+    const back = document.activeElement;
+    const ta = el('textarea', 'vh');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.setAttribute('aria-hidden', 'true');
+    ta.tabIndex = -1;
+    document.body.appendChild(ta);
+    ta.focus({ preventScroll: true });
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+    document.body.removeChild(ta);
+    if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+    return ok;
+  }
+  function copyLink() {
+    writeHash();
+    const url = location.href;
+    // The clipboard API needs a secure page and can be refused; the old
+    // copy command still works in most of those, and where neither does,
+    // the link is already in the address bar.
+    const fallback = function () {
+      toast(copyByCommand(url) ? 'Link copied' : 'Copy the link from the address bar');
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(url).then(function () { toast('Link copied'); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Keyboard shortcuts, and the dialog that lists them.
+  const keysDlg = document.getElementById('keys');
+  const keysBtn = document.getElementById('keys-btn');
+  const keysClose = document.getElementById('keys-close');
+  const canDialog = typeof keysDlg.showModal === 'function';
+  if (!canDialog) keysBtn.hidden = true;
+  let keysBack = null;
+  let keysOut = null;
+  function openKeys() {
+    if (!canDialog) return;
+    if (keysOut) { keysOut.cancel(); keysOut = null; }
+    if (keysDlg.open) return;
+    keysBack = document.activeElement;
+    keysDlg.showModal();
+    keysClose.focus();
+    if (canAnimate) {
+      keysDlg.animate([
+        { opacity: 0, transform: 'translateY(8px) scale(0.98)' },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 220, easing: EASE_UI });
+    }
+  }
+  function closeKeys() {
+    if (!keysDlg.open || keysOut) return;
+    const shut = function () {
+      keysDlg.close();
+      const back = keysBack;
+      keysBack = null;
+      // Back to what opened it, the button or wherever the ? was typed.
+      if (back && back.isConnected && back !== document.body && typeof back.focus === 'function') {
+        back.focus({ preventScroll: true });
+      }
+    };
+    if (!canAnimate) { shut(); return; }
+    const out = keysDlg.animate([
+      { opacity: 1, transform: 'none' },
+      { opacity: 0, transform: 'translateY(4px) scale(0.98)' }
+    ], { duration: 140, easing: EASE_UI, fill: 'forwards' });
+    keysOut = out;
+    out.onfinish = function () {
+      if (keysOut !== out) return;
+      keysOut = null;
+      shut();
+      out.cancel();
+    };
+  }
+  keysBtn.addEventListener('click', openKeys);
+  keysClose.addEventListener('click', closeKeys);
+  // Escape arrives as cancel, which would close it at once, with no fade
+  // and no return of the focus.
+  keysDlg.addEventListener('cancel', function (e) { e.preventDefault(); closeKeys(); });
+  // A click on the dimmed page around it lands on the dialog itself.
+  keysDlg.addEventListener('click', function (e) { if (e.target === keysDlg) closeKeys(); });
+  keysDlg.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { e.preventDefault(); closeKeys(); return; }
+    if (e.key !== 'Tab') return;
+    // A modal dialog keeps the page out of reach, but Tab would still go
+    // on to the browser's own controls; here it goes round the dialog.
+    const stops = Array.prototype.filter.call(
+      keysDlg.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])'),
+      function (n) { return !n.hidden && n.offsetParent !== null; });
+    if (!stops.length) { e.preventDefault(); return; }
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !keysDlg.contains(document.activeElement))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  // A key typed into a text field is the field's. On a button, Space is
+  // the button's press. The map container keeps its own arrows and + and
+  // - for panning and zooming, and the slider its own arrows and ends.
+  const TYPED = ['range', 'button', 'checkbox', 'radio', 'submit', 'reset', 'color', 'file', 'image'];
+  function typingIn(t) {
+    if (!t || !t.tagName) return false;
+    if (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return true;
+    return t.tagName === 'INPUT' && TYPED.indexOf(t.type) < 0;
+  }
+  function stepDayKey(dir) {
+    if (selectedDay === null) { selectDay(points[current][5], 'step'); return; }
+    const d = selectedDay + dir;
+    if (d >= 0 && d < TRIP.days.length) selectDay(d, 'step');
+  }
+  document.addEventListener('keydown', function (e) {
+    if (keysDlg.open || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    const t = e.target;
+    if (typingIn(t)) return;
+    const k = e.key;
+    const onMap = t === mapEl;
+    const onSlider = t === slider;
+    if (k === 'Escape') {
+      if (selectedDay !== null) selectDay(null, 'escape');
+      return;
+    }
+    if (k === ' ' || k === 'Spacebar') {
+      if (t.closest && t.closest('button, a[href], summary, [role="button"]')) return;
+      e.preventDefault();
+      if (!e.repeat) togglePlay();
+      return;
+    }
+    if (k === 'ArrowLeft' || k === 'ArrowRight') {
+      if (onMap || onSlider) return;
+      e.preventDefault();
+      setIndex(current + (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1), 'key');
+      return;
+    }
+    if (k === 'Home' || k === 'End') {
+      if (onSlider) return;
+      e.preventDefault();
+      if (k === 'Home') setIndex(selectedDay === null ? 0 : driveStart[selectedDay], 'key');
+      else setIndex(selectedDay === null ? LAST : dayHi[selectedDay], 'key');
+      return;
+    }
+    if (e.repeat) return;
+    if (k === '?') { e.preventDefault(); openKeys(); return; }
+    if (k === '[' || k === ']') { e.preventDefault(); stepDayKey(k === ']' ? 1 : -1); return; }
+    if (k === 'f' || k === 'F') { e.preventDefault(); fitTo(trackBounds); }
+  });
 
   // Load. The days draw themselves in order, each over a share of the
   // time that matches its distance, so a long day takes longer to draw
@@ -5320,8 +6342,9 @@ body.sheet-open #dock::after { opacity: 1; }
   function startReveal() {
     if (!canAnimate) return;
     motion('intro', true);
+    if (colourMode !== 'day') rebuildLines(true);
     introStart = document.timeline ? document.timeline.currentTime : null;
-    routeParts.forEach(function (part) {
+    routeParts.concat(allLines()).forEach(function (part) {
       const path = part.layer.getElement();
       if (!path) return;
       const span = revealSpan(part.seg);
@@ -5392,7 +6415,7 @@ body.sheet-open #dock::after { opacity: 1; }
     if (!introAnims.length) return;
     introAnims.forEach(function (anim) { anim.cancel(); });
     introAnims = [];
-    routeParts.forEach(function (part) {
+    routeParts.concat(allLines()).forEach(function (part) {
       const path = part.layer.getElement();
       if (!path || !part.dashed) return;
       part.dashed = false;
@@ -5403,6 +6426,7 @@ body.sheet-open #dock::after { opacity: 1; }
       window.removeEventListener(type, finishReveal, { capture: true, passive: true });
     });
     map.off('zoomstart', finishReveal);
+    if (linesSplit) rebuildLines(false);
     motion('intro', false);
   }
   // The chart draws left to right once the route is down. render() runs
@@ -5444,6 +6468,7 @@ body.sheet-open #dock::after { opacity: 1; }
     const phone = getComputedStyle(handle).display !== 'none';
     const daysTable = document.getElementById('days');
     const parts = (phone ? [] : [titleEl]).concat(
+      [document.getElementById('colour')],
       Array.prototype.slice.call(totalsEl.children),
       [document.getElementById('records'), document.getElementById('days-head'), daysTable, document.getElementById('provinces')]
     );
@@ -5494,11 +6519,21 @@ body.sheet-open #dock::after { opacity: 1; }
     requestAnimationFrame(frame);
   }
 
-  startReveal();
+  // A link opens on its view at once, without the route drawing itself
+  // first: whoever sent it meant that place, not the trip from the start.
+  const bootLink = readLink();
+  const linked = bootLink.day !== null || bootLink.at !== null;
+  if (!linked) startReveal();
   render();
   watchReveal();
   setIndex(0, 'init');
+  if (linked) {
+    booting = true;
+    applyLink(bootLink);
+    booting = false;
+  }
   restHalo();
+  hashReady = true;
   // Desktop and tablet show the stats from the start. On a phone only the
   // title pill is in view, and it settles in on its own.
   if (getComputedStyle(handle).display === 'none') {
